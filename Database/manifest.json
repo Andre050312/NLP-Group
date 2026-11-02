@@ -1,0 +1,291 @@
+{
+  "sources": [
+    {
+      "directory": "SemEval2014",
+      "remote": "https://huggingface.co/datasets/alexcadillon/SemEval2014Task4",
+      "commit": "3fd43769112ef6517c263e303fbb7dc3002c35df"
+    },
+    {
+      "directory": "MAMS",
+      "remote": "https://github.com/siat-nlp/MAMS-for-ABSA.git",
+      "commit": "cddcdb0f423b3fdb2c76b70744737abed3a00d17"
+    },
+    {
+      "directory": "ASAP",
+      "remote": "https://github.com/Meituan-Dianping/asap.git",
+      "commit": "975122a60065240124df62cb4d5dbfd19ed9ef2c"
+    }
+  ],
+  "files": [
+    {
+      "path": "SemEval2014/ABSA_Gold_TestData/Laptops_Test_Gold.xml",
+      "bytes": 178754,
+      "sha256": "aa3a30c9dd7e0eacf9b69e898eb4118a36c1b4f391a30a08dfc41a38d8b8745b",
+      "sentences": 800,
+      "aspect_terms": 654,
+      "aspect_categories": 0
+    },
+    {
+      "path": "SemEval2014/ABSA_Gold_TestData/Restaurants_Test_Gold.xml",
+      "bytes": 359021,
+      "sha256": "f21509cfa37e16534cd5b2da043be487355b64ef48fe8d6aaacaeca6b49cc0fb",
+      "sentences": 800,
+      "aspect_terms": 1134,
+      "aspect_categories": 1025
+    },
+    {
+      "path": "SemEval2014/SemEval'14-ABSA-TrainData_v2 & AnnotationGuidelines/Laptop_Train_v2.xml",
+      "bytes": 687312,
+      "sha256": "efec2ed73b4efb83b47c697114d800149c558118884afa80362a6e975ba7248c",
+      "sentences": 3045,
+      "aspect_terms": 2358,
+      "aspect_categories": 0
+    },
+    {
+      "path": "SemEval2014/SemEval'14-ABSA-TrainData_v2 & AnnotationGuidelines/Restaurants_Train_v2.xml",
+      "bytes": 1235614,
+      "sha256": "223601da1bded6caa4ef9cf91a7007578141ca6d8ed50d5a5c217565f89d2fc5",
+      "sentences": 3041,
+      "aspect_terms": 3693,
+      "aspect_categories": 3713
+    },
+    {
+      "path": "SemEval2014/laptops-trial.xml",
+      "bytes": 18547,
+      "sha256": "0971a30e6add454d344ac011385fb8407db4193db048c8cd8e7a82908ac5172d",
+      "sentences": 100,
+      "aspect_terms": 49,
+      "aspect_categories": 0
+    },
+    {
+      "path": "SemEval2014/restaurants-trial.xml",
+      "bytes": 35675,
+      "sha256": "48d758803cd5183e9b8ee8a04520889a4b7ff371a2ff66e399ba193620e5bc41",
+      "sentences": 100,
+      "aspect_terms": 96,
+      "aspect_categories": 114
+    },
+    {
+      "path": "MAMS/data/MAMS-ACSA/raw/test.xml",
+      "bytes": 136615,
+      "sha256": "cc0dc3c5b711653daa9ac886c6517d3ebf8752954b73715692d7765fec4a57f5",
+      "sentences": 400,
+      "aspect_terms": 0,
+      "aspect_categories": 901
+    },
+    {
+      "path": "MAMS/data/MAMS-ACSA/raw/train.xml",
+      "bytes": 1081235,
+      "sha256": "24c6a1a9f769ec5a9a1fc9a63077001339cec65317e3e72cf053d8055ec5f1ac",
+      "sentences": 3149,
+      "aspect_terms": 0,
+      "aspect_categories": 7090
+    },
+    {
+      "path": "MAMS/data/MAMS-ACSA/raw/val.xml",
+      "bytes": 135397,
+      "sha256": "d4536b0ced8e77f53f88ff1835fcf561e0de02e41a509982f76eb9b8a375b2ed",
+      "sentences": 400,
+      "aspect_terms": 0,
+      "aspect_categories": 888
+    },
+    {
+      "path": "MAMS/data/MAMS-ATSA/raw/test.xml",
+      "bytes": 196660,
+      "sha256": "f1a5f53b785335e9c57a1f82b1415026f821040b9e9662a2e467d47a54f20aa9",
+      "sentences": 500,
+      "aspect_terms": 1336,
+      "aspect_categories": 0
+    },
+    {
+      "path": "MAMS/data/MAMS-ATSA/raw/train.xml",
+      "bytes": 1641623,
+      "sha256": "26ba39142b28169ebc80408294f4e27493bd1e127c6aa2e85ab4bc750bf8017a",
+      "sentences": 4297,
+      "aspect_terms": 11186,
+      "aspect_categories": 0
+    },
+    {
+      "path": "MAMS/data/MAMS-ATSA/raw/val.xml",
+      "bytes": 195718,
+      "sha256": "5b7d225e2f9482a3814f15aed04ff8323105171a47d22d9899d871c4e0ba86ca",
+      "sentences": 500,
+      "aspect_terms": 1332,
+      "aspect_categories": 0
+    },
+    {
+      "path": "ASAP/data/dev.csv",
+      "bytes": 4891291,
+      "sha256": "54efc8f6bc26d63a9f87e3418cd68e47f2eb13a19085e85abe63f3eafafe2b44",
+      "rows": 4940,
+      "columns": [
+        "id",
+        "review",
+        "star",
+        "Location#Transportation",
+        "Location#Downtown",
+        "Location#Easy_to_find",
+        "Service#Queue",
+        "Service#Hospitality",
+        "Service#Parking",
+        "Service#Timely",
+        "Price#Level",
+        "Price#Cost_effective",
+        "Price#Discount",
+        "Ambience#Decoration",
+        "Ambience#Noise",
+        "Ambience#Space",
+        "Ambience#Sanitary",
+        "Food#Portion",
+        "Food#Taste",
+        "Food#Appearance",
+        "Food#Recommend"
+      ]
+    },
+    {
+      "path": "ASAP/data/dev_sample.csv",
+      "bytes": 99417,
+      "sha256": "8cc713d952e20831f7d5314c6b0a0d5f68d062b73f883be18735363822ed5360",
+      "rows": 100,
+      "columns": [
+        "index",
+        "reviewbody",
+        "star",
+        "location_traffic",
+        "location_distance_from_business_district",
+        "location_easy_to_find",
+        "service_wait_time",
+        "service_waiters_attitude",
+        "service_parking_convenience",
+        "service_serving_speed",
+        "price_level",
+        "price_cost_effective",
+        "price_discount",
+        "environment_decoration",
+        "environment_noise",
+        "environment_space",
+        "environment_cleaness",
+        "dish_portion",
+        "dish_taste",
+        "dish_look",
+        "dish_recommendation"
+      ]
+    },
+    {
+      "path": "ASAP/data/test.csv",
+      "bytes": 4850010,
+      "sha256": "217dd27c1d5699067952474e40824935d56ecf8b5047950d6da3d1222976a2bd",
+      "rows": 4940,
+      "columns": [
+        "id",
+        "review",
+        "star",
+        "Location#Transportation",
+        "Location#Downtown",
+        "Location#Easy_to_find",
+        "Service#Queue",
+        "Service#Hospitality",
+        "Service#Parking",
+        "Service#Timely",
+        "Price#Level",
+        "Price#Cost_effective",
+        "Price#Discount",
+        "Ambience#Decoration",
+        "Ambience#Noise",
+        "Ambience#Space",
+        "Ambience#Sanitary",
+        "Food#Portion",
+        "Food#Taste",
+        "Food#Appearance",
+        "Food#Recommend"
+      ]
+    },
+    {
+      "path": "ASAP/data/test_sample.csv",
+      "bytes": 108301,
+      "sha256": "a07c009fcf0904d9d5e39189782ff826021865edef8c92b191c2e24bc34ce436",
+      "rows": 100,
+      "columns": [
+        "index",
+        "reviewbody",
+        "star",
+        "location_traffic",
+        "location_distance_from_business_district",
+        "location_easy_to_find",
+        "service_wait_time",
+        "service_waiters_attitude",
+        "service_parking_convenience",
+        "service_serving_speed",
+        "price_level",
+        "price_cost_effective",
+        "price_discount",
+        "environment_decoration",
+        "environment_noise",
+        "environment_space",
+        "environment_cleaness",
+        "dish_portion",
+        "dish_taste",
+        "dish_look",
+        "dish_recommendation"
+      ]
+    },
+    {
+      "path": "ASAP/data/train.csv",
+      "bytes": 36475033,
+      "sha256": "30912f5e2a866a4c0f654ec3461215f008b8b90d208f2c410f03369f43655de9",
+      "rows": 36850,
+      "columns": [
+        "id",
+        "review",
+        "star",
+        "Location#Transportation",
+        "Location#Downtown",
+        "Location#Easy_to_find",
+        "Service#Queue",
+        "Service#Hospitality",
+        "Service#Parking",
+        "Service#Timely",
+        "Price#Level",
+        "Price#Cost_effective",
+        "Price#Discount",
+        "Ambience#Decoration",
+        "Ambience#Noise",
+        "Ambience#Space",
+        "Ambience#Sanitary",
+        "Food#Portion",
+        "Food#Taste",
+        "Food#Appearance",
+        "Food#Recommend"
+      ]
+    },
+    {
+      "path": "ASAP/data/train_sample.csv",
+      "bytes": 104205,
+      "sha256": "02a59398e87e44e09c2c0405fda3b67eff7b175e452d01eee90e04b159267f71",
+      "rows": 100,
+      "columns": [
+        "index",
+        "reviewbody",
+        "star",
+        "location_traffic",
+        "location_distance_from_business_district",
+        "location_easy_to_find",
+        "service_wait_time",
+        "service_waiters_attitude",
+        "service_parking_convenience",
+        "service_serving_speed",
+        "price_level",
+        "price_cost_effective",
+        "price_discount",
+        "environment_decoration",
+        "environment_noise",
+        "environment_space",
+        "environment_cleaness",
+        "dish_portion",
+        "dish_taste",
+        "dish_look",
+        "dish_recommendation"
+      ]
+    }
+  ]
+}

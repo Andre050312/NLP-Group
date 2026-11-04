@@ -116,6 +116,7 @@ class WindowDataset(Dataset):
             raise ValueError("Invalid max_length/stride")
         self.documents, self.rows = documents, []
         covered = set()
+        non_exact = {}
         for doc_index, document in enumerate(documents):
             encoded = tokenizer(document.text, truncation=True, max_length=max_length,
                                 stride=stride, return_overflowing_tokens=True,
@@ -125,6 +126,7 @@ class WindowDataset(Dataset):
                 special = encoded["special_tokens_mask"][window_index]
                 valid = [not s and b > a for s, (a, b) in zip(special, offsets)]
                 bio = [0 if v else -100 for v in valid]
+                ignored_bio_positions = set()
                 targets = []
                 for aspect in document.aspects:
                     positions = align_span(offsets, aspect.start, aspect.end)
@@ -132,17 +134,28 @@ class WindowDataset(Dataset):
                         # A partially visible gold span must not become a false O target.
                         for i, (a, b) in enumerate(offsets):
                             if b > a and b > aspect.start and a < aspect.end:
-                                bio[i] = -100
+                                ignored_bio_positions.add(i)
                         continue
                     predicted_span = trim_span(document.text, offsets[positions[0]][0], offsets[positions[-1]][1])
-                    if predicted_span != (aspect.start, aspect.end):
-                        raise ValueError(f"Tokenizer cannot represent exact aspect boundary: {document.uid}, {aspect}")
                     covered.add((doc_index, aspect.start, aspect.end))
-                    for j, pos in enumerate(positions):
-                        bio[pos] = 1 if j == 0 else 2
+                    if predicted_span == (aspect.start, aspect.end):
+                        for j, pos in enumerate(positions):
+                            bio[pos] = 1 if j == 0 else 2
+                    else:
+                        # Some source annotations end inside a subword (e.g. "dress cod"
+                        # inside "dress code"). Pool the covering tokens for sentiment,
+                        # but do not teach an incorrect expanded extraction boundary.
+                        # Keep the ORIGINAL character span for all gold metrics.
+                        ignored_bio_positions.update(positions)
+                        non_exact[(doc_index, aspect.start, aspect.end)] = {
+                            "sentence_id": document.uid, "start": aspect.start, "end": aspect.end,
+                            "aspect": document.text[aspect.start:aspect.end],
+                            "covering_token_text": document.text[predicted_span[0]:predicted_span[1]]}
                     if aspect.label in SENTIMENTS:
                         targets.append((positions[0], positions[-1] + 1, SENTIMENTS.index(aspect.label),
                                         aspect.start, aspect.end))
+                for pos in ignored_bio_positions:
+                    bio[pos] = -100
                 model_inputs = {key: encoded[key][window_index]
                                 for key in tokenizer.model_input_names if key in encoded}
                 self.rows.append({"inputs": model_inputs, "valid": valid, "bio": bio,
@@ -150,6 +163,9 @@ class WindowDataset(Dataset):
         expected = {(i, a.start, a.end) for i, d in enumerate(documents) for a in d.aspects}
         if expected - covered:
             raise ValueError("Some aspects do not fit any window. Increase --max-length or --stride")
+        self.alignment_stats = {"gold_aspects": len(expected),
+                                "non_exact_token_spans": len(non_exact),
+                                "non_exact_examples": list(non_exact.values())[:10]}
 
     def __len__(self):
         return len(self.rows)

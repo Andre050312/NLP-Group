@@ -54,6 +54,22 @@ class EnhancedTests(unittest.TestCase):
         self.assertEqual(len(data.rows[0]["targets"]), 1)
         self.assertEqual(data.rows[0]["bio"].count(1), 2)
 
+    def test_partial_subword_keeps_gold_span_and_masks_bio(self):
+        # Mirrors source annotations such as "dress cod" inside "dress code".
+        document = Document("partial", "food good", (Aspect(0, 3, "negative"),))
+        data = WindowDataset([document], self.tokenizer, 32, 4)
+        row = data.rows[0]
+        start, end, label, char_start, char_end = row["targets"][0]
+        self.assertEqual((char_start, char_end), (0, 3))
+        self.assertEqual(label, 0)
+        self.assertTrue(all(row["bio"][i] == -100 for i in range(start, end)))
+        self.assertEqual(data.alignment_stats["non_exact_token_spans"], 1)
+        # Gold classification still includes this target; source text was not fixed.
+        metrics, gold_rows, _ = evaluate(self.model(), self.tokenizer, data, torch.device("cpu"))
+        self.assertEqual(metrics["gold_aspect_sentiment"]["examples"], 1)
+        self.assertEqual(gold_rows[0]["aspect"], "foo")
+        self.assertEqual(metrics["aspect_extraction"]["gold"], 1)
+
     def test_joint_gradients_and_local_global_gate(self):
         data = WindowDataset([self.document()], self.tokenizer, 32, 4)
         batch = Collator(self.tokenizer)([data[0]])

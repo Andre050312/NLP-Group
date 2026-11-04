@@ -130,6 +130,9 @@ def train(args):
     config = {**vars(args), "resolved_precision": precision, "resolved_device": str(device),
               "train_path": str(train_path), "validation_path": str(validation_path), "test_path": str(test_path),
               "audit": audit, "train_sentences": len(train_docs), "validation_sentences": len(val_docs),
+              "token_alignment": {"train": train_data.alignment_stats,
+                                  "validation": val_data.alignment_stats,
+                                  "test": test_data.alignment_stats if test_data is not None else None},
               "train_windows": len(train_data), "effective_batch_size": args.batch_size * args.grad_accum,
               "parameters": sum(p.numel() for p in model.parameters()),
               "class_weights": class_weights.tolist() if class_weights is not None else None,
@@ -142,6 +145,8 @@ def train(args):
         name: [{"uid": d.uid, "text": d.text} for d in documents]
         for name, documents in (("train", train_docs), ("validation", val_docs), ("test", test_docs or []))})
     print(json.dumps({"device": str(device), "precision": precision, "audit": audit,
+                      "non_exact_token_spans": {name: value["non_exact_token_spans"]
+                                                for name, value in config["token_alignment"].items() if value is not None},
                       "train_windows": len(train_data), "effective_batch_size": config["effective_batch_size"]}), flush=True)
     history, best_score, bad_epochs = [], -1.0, 0
     started = time.monotonic()

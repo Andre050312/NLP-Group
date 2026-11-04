@@ -1,6 +1,21 @@
 # 情感分析数据集
 
-本目录保存前面讨论的四个数据集：SemEval-2014 Restaurant、SemEval-2014 Laptop、MAMS、ASAP。保留下载仓库的原始结构、说明及许可证，没有修改标签或重新划分数据。
+本目录用于保存 SemEval-2014 Restaurant、SemEval-2014 Laptop、MAMS 和可选的 ASAP。数据保留原始标签与划分。
+
+## XML 下载与校验
+
+在项目根目录的 PowerShell 中运行：
+
+```powershell
+python scripts/download_datasets.py
+python scripts/download_datasets.py --check
+```
+
+默认准备 SemEval 的 4 个训练/测试 XML 和 MAMS ATSA/ACSA 的 6 个 XML。支持 `--dataset semeval`、`--dataset mams`；脚本不需要 Git、不下载 ASAP CSV 或作者模型代码。已有有效 XML 跳过；缺失或损坏时下载并校验，替换损坏文件前保留哈希命名备份。`--check` 只检查，不联网、不写文件。
+
+当前下载记录、固定来源版本、SHA-256、样本数和失败项目见脚本生成的 `download_manifest.json`。旧的 `manifest.json` 是初次仓库下载的快照，不会被覆盖。文件存在且可解析不等同于远程版本已核验。
+
+原始标注可能在子词内部结束，例如 `dress code` 中标注 `dress cod`。下载时不修改这些标注；模型用覆盖子词完成情感分类，屏蔽不可精确表示的 BIO 监督，并保留原始跨度进行评价。
 
 ## 目录与规模
 
@@ -29,4 +44,4 @@
 
 SemEval 含 positive、negative、neutral、conflict，需明确四分类或过滤 conflict 的协议。ASAP 标签为 1=正面、0=中性、-1=负面、-2=未提及；未提及不能直接当中性。
 
-MAMS 和 ASAP 同时保留了作者提供的代码及文档，仅下载，未安装依赖或执行仓库代码。
+通过完整仓库下载的数据可能还包含作者代码与文档；统一 XML 下载脚本只准备数据文件，不安装或执行来源仓库的代码。使用数据前请阅读原发布方说明并引用对应论文。

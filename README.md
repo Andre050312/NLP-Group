@@ -11,7 +11,7 @@
 
 ## 1. 创建并激活虚拟环境
 
-先安装 Miniconda 或 Anaconda，使 PowerShell 可以使用 `conda` 命令；下载数据还需要 Git。在支持 Conda 的 PowerShell 终端中创建独立环境：
+先安装 Miniconda 或 Anaconda，使 PowerShell 可以使用 `conda` 命令。在支持 Conda 的 PowerShell 终端中创建独立环境：
 
 ```powershell
 conda create --name nlp python=3.12 pip -y
@@ -78,12 +78,35 @@ Database/
     └── test.xml
 ```
 
-`--dataset restaurant`、`laptop`、`mams` 自动定位数据。若未下载，仅在目标目录不存在时运行：
+训练入口的 `--dataset restaurant`、`laptop`、`mams` 自动定位数据。使用统一下载脚本准备 XML，不需要 Git 或额外 Python 依赖：
 
 ```powershell
-git clone --depth 1 https://huggingface.co/datasets/alexcadillon/SemEval2014Task4 Database/SemEval2014
-git clone --depth 1 https://github.com/siat-nlp/MAMS-for-ABSA.git Database/MAMS
+python scripts/download_datasets.py
 ```
+
+默认下载 SemEval 餐厅/笔记本的训练与测试 XML（4 个），以及 MAMS-ATSA、MAMS-ACSA 的 train/val/test（6 个），共 10 个 XML。现有目录可以保留；有效文件跳过，缺失/损坏文件重新下载，损坏旧文件先备份为 `.invalid-文件哈希`。下载先写临时文件，XML 解析和字符跨度检查成功后再放入正式位置。脚本不下载 ASAP CSV 或作者模型代码。
+
+只下载 SemEval：
+
+```powershell
+python scripts/download_datasets.py --dataset semeval
+```
+
+只下载 MAMS：
+
+```powershell
+python scripts/download_datasets.py --dataset mams
+```
+
+离线检查已有文件（不下载、不修改）：
+
+```powershell
+python scripts/download_datasets.py --check
+```
+
+下载来源固定到已记录的仓库版本，下载报告、SHA-256 和样本数保存在 `Database/download_manifest.json`。已存在的有效文件会记录哈希，但不假定它一定来自该固定版本。来源及使用说明见 `Database/README.md`。
+
+下载脚本保留原始 XML 的标签和字符位置，不会把 `dress cod` 自动改成 `dress code`。这类真实子串标注可通过 XML 校验，其子词边界兼容由模型读取代码处理；因此遇到旧版对齐报错时应更新代码，而不是反复下载或手工改测试集。
 
 协议：
 
@@ -91,7 +114,7 @@ git clone --depth 1 https://github.com/siat-nlp/MAMS-for-ABSA.git Database/MAMS
 - SemEval 验证文本选择复用原基线划分逻辑与 seed。增强版保留原训练来源中没有三分类目标的句子，提供额外抽取背景监督；这些句子不增加三分类指标的样本数。
 - MAMS 使用原 train/val/test。同一句不同方面不能跨集合；训练与验证文本重合时报错。
 - 保留完整测试集；从训练、验证中排除与测试完全相同的文本并记录数量。测试成绩不用于选超参数或 epoch。
-- 检查 XML 字符偏移、精确 token 对齐与窗口覆盖，不能表示的标注报错，不静默跳过。
+- 检查 XML 字符偏移与窗口覆盖。若方面边界落在子词内部，情感分类使用覆盖该方面的子词，保留原始标签与字符跨度；对应 BIO token 屏蔽为 `-100`，不训练错误的扩展边界。数量和示例记录在 `run_config.json` 的 `token_alignment`。端到端评价仍使用原始跨度，因此无法精确表示的方面仍影响抽取召回率，不会被改写或从评价中删除。
 - ASAP、MAMS-ACSA 是类别任务，不支持本版读取器；跨数据集实验先检查重复，不直接拼接随机划分。
 
 ## 4. 运行测试
@@ -226,7 +249,9 @@ runs/deberta_joint_restaurant_seed42/
 
 ## 11. 常见问题
 
+- `test_actual_downloaded_xml` 失败：该项需要实际数据文件，其余离线测试使用临时小样本。执行 `Get-ChildItem .\Database -Recurse -Filter *.xml | Select-Object FullName`，按“数据”一节补齐文件并检查是否多套了目录；测试报错会列出缺失路径。只同步代码不会自动同步数据。
 - 显存不足：改为 `--batch-size 1 --grad-accum 8`；仍不足可用 `--max-length 128 --stride 32`。保留混合精度与检查点；重试换新输出目录。
+- `Tokenizer cannot represent exact aspect boundary`：同步最新 `absa_enhanced/data.py` 和 `cli.py`。某些源标注结束于子词内部（例如原文 `dress code` 标成 `dress cod`），新代码保留情感样本、屏蔽不可精确表示的 BIO 监督并记录统计；不修改原始 XML。
 - 模型下载失败：检查网络，或完整下载配置/权重/tokenizer 后将 `--encoder` 指向本地目录。
 - Fast tokenizer 或 protobuf 错误：确认已安装统一 requirements，重新打开终端并激活项目环境，不跳过 tokenizer 依赖。
 - 非有限损失：新目录尝试 `--precision no` 或更低学习率；全精度更占显存，降低 batch-size。

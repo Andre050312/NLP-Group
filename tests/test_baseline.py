@@ -12,10 +12,28 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class DataTests(unittest.TestCase):
     def test_actual_downloaded_xml(self):
-        files = list((ROOT/'Database/SemEval2014').rglob('*Train_v2.xml'))
-        files += list((ROOT/'Database/SemEval2014/ABSA_Gold_TestData').glob('*.xml'))
-        files += list((ROOT/'Database/MAMS/data/MAMS-ATSA/raw').glob('*.xml'))
-        self.assertEqual(len(files), 7)
+        database = ROOT / 'Database'
+        semeval = database / 'SemEval2014'
+        files, missing = [], []
+        for name in ('Laptop_Train_v2.xml', 'Restaurants_Train_v2.xml'):
+            matches = list(semeval.rglob(name))
+            if len(matches) == 1:
+                files.append(matches[0])
+            else:
+                missing.append(f'{semeval}/**/{name} (found {len(matches)})')
+        expected = [semeval / 'ABSA_Gold_TestData' / name for name in
+                    ('Laptops_Test_Gold.xml', 'Restaurants_Test_Gold.xml')]
+        expected += [database / 'MAMS/data/MAMS-ATSA/raw' / f'{split}.xml'
+                     for split in ('train', 'val', 'test')]
+        for path in expected:
+            if path.is_file():
+                files.append(path)
+            else:
+                missing.append(str(path))
+        self.assertFalse(missing,
+                         '\nDataset files missing or ambiguous:\n' + '\n'.join(missing) +
+                         '\nDownload/copy the datasets into the Database directory described in README.md.' +
+                         '\nModel-only offline tests: python -m unittest discover -s tests -p "test_enhanced.py" -v')
         for path in files:
             examples, stats = read_xml(path)
             self.assertTrue(examples)

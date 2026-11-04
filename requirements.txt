@@ -1,3 +1,12 @@
-torch>=2.2,<3
-transformers>=4.48,<6
-sentencepiece>=0.2,<1
+# One requirements file for both bert_baseline and absa_enhanced.
+# Windows: CUDA 12.8 build for the user's RTX 5060 / NVIDIA driver.
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch==2.10.0+cu128; sys_platform == "win32"
+torch>=2.6,<3; sys_platform != "win32"
+# Pin the tokenizer/model API used by the enhanced implementation.
+transformers==4.57.1
+sentencepiece==0.2.1
+protobuf>=4.25,<7
+safetensors>=0.4.3,<1
+tqdm>=4.66,<5
+numpy>=1.26,<3

@@ -1,0 +1,117 @@
+{
+  "dataset": "all",
+  "files": [
+    {
+      "path": "SemEval2014/SemEval'14-ABSA-TrainData_v2 & AnnotationGuidelines/Laptop_Train_v2.xml",
+      "status": "downloaded",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2014Task4/resolve/3fd43769112ef6517c263e303fbb7dc3002c35df/SemEval%2714-ABSA-TrainData_v2%20%26%20AnnotationGuidelines/Laptop_Train_v2.xml",
+      "source_revision": "3fd43769112ef6517c263e303fbb7dc3002c35df",
+      "sentences": 3045,
+      "aspect_terms": 2358,
+      "aspect_categories": 0,
+      "bytes": 687312,
+      "sha256": "efec2ed73b4efb83b47c697114d800149c558118884afa80362a6e975ba7248c"
+    },
+    {
+      "path": "SemEval2014/SemEval'14-ABSA-TrainData_v2 & AnnotationGuidelines/Restaurants_Train_v2.xml",
+      "status": "downloaded",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2014Task4/resolve/3fd43769112ef6517c263e303fbb7dc3002c35df/SemEval%2714-ABSA-TrainData_v2%20%26%20AnnotationGuidelines/Restaurants_Train_v2.xml",
+      "source_revision": "3fd43769112ef6517c263e303fbb7dc3002c35df",
+      "sentences": 3041,
+      "aspect_terms": 3693,
+      "aspect_categories": 3713,
+      "bytes": 1235614,
+      "sha256": "223601da1bded6caa4ef9cf91a7007578141ca6d8ed50d5a5c217565f89d2fc5"
+    },
+    {
+      "path": "SemEval2014/ABSA_Gold_TestData/Laptops_Test_Gold.xml",
+      "status": "downloaded",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2014Task4/resolve/3fd43769112ef6517c263e303fbb7dc3002c35df/ABSA_Gold_TestData/Laptops_Test_Gold.xml",
+      "source_revision": "3fd43769112ef6517c263e303fbb7dc3002c35df",
+      "sentences": 800,
+      "aspect_terms": 654,
+      "aspect_categories": 0,
+      "bytes": 178754,
+      "sha256": "aa3a30c9dd7e0eacf9b69e898eb4118a36c1b4f391a30a08dfc41a38d8b8745b"
+    },
+    {
+      "path": "SemEval2014/ABSA_Gold_TestData/Restaurants_Test_Gold.xml",
+      "status": "downloaded",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2014Task4/resolve/3fd43769112ef6517c263e303fbb7dc3002c35df/ABSA_Gold_TestData/Restaurants_Test_Gold.xml",
+      "source_revision": "3fd43769112ef6517c263e303fbb7dc3002c35df",
+      "sentences": 800,
+      "aspect_terms": 1134,
+      "aspect_categories": 1025,
+      "bytes": 359021,
+      "sha256": "f21509cfa37e16534cd5b2da043be487355b64ef48fe8d6aaacaeca6b49cc0fb"
+    },
+    {
+      "path": "MAMS/data/MAMS-ATSA/raw/train.xml",
+      "status": "downloaded",
+      "source_url": "https://raw.githubusercontent.com/siat-nlp/MAMS-for-ABSA/cddcdb0f423b3fdb2c76b70744737abed3a00d17/data/MAMS-ATSA/raw/train.xml",
+      "source_revision": "cddcdb0f423b3fdb2c76b70744737abed3a00d17",
+      "sentences": 4297,
+      "aspect_terms": 11186,
+      "aspect_categories": 0,
+      "bytes": 1641623,
+      "sha256": "26ba39142b28169ebc80408294f4e27493bd1e127c6aa2e85ab4bc750bf8017a"
+    },
+    {
+      "path": "MAMS/data/MAMS-ATSA/raw/val.xml",
+      "status": "downloaded",
+      "source_url": "https://raw.githubusercontent.com/siat-nlp/MAMS-for-ABSA/cddcdb0f423b3fdb2c76b70744737abed3a00d17/data/MAMS-ATSA/raw/val.xml",
+      "source_revision": "cddcdb0f423b3fdb2c76b70744737abed3a00d17",
+      "sentences": 500,
+      "aspect_terms": 1332,
+      "aspect_categories": 0,
+      "bytes": 195718,
+      "sha256": "5b7d225e2f9482a3814f15aed04ff8323105171a47d22d9899d871c4e0ba86ca"
+    },
+    {
+      "path": "MAMS/data/MAMS-ATSA/raw/test.xml",
+      "status": "downloaded",
+      "source_url": "https://raw.githubusercontent.com/siat-nlp/MAMS-for-ABSA/cddcdb0f423b3fdb2c76b70744737abed3a00d17/data/MAMS-ATSA/raw/test.xml",
+      "source_revision": "cddcdb0f423b3fdb2c76b70744737abed3a00d17",
+      "sentences": 500,
+      "aspect_terms": 1336,
+      "aspect_categories": 0,
+      "bytes": 196660,
+      "sha256": "f1a5f53b785335e9c57a1f82b1415026f821040b9e9662a2e467d47a54f20aa9"
+    },
+    {
+      "path": "MAMS/data/MAMS-ACSA/raw/train.xml",
+      "status": "downloaded",
+      "source_url": "https://raw.githubusercontent.com/siat-nlp/MAMS-for-ABSA/cddcdb0f423b3fdb2c76b70744737abed3a00d17/data/MAMS-ACSA/raw/train.xml",
+      "source_revision": "cddcdb0f423b3fdb2c76b70744737abed3a00d17",
+      "sentences": 3149,
+      "aspect_terms": 0,
+      "aspect_categories": 7090,
+      "bytes": 1081235,
+      "sha256": "24c6a1a9f769ec5a9a1fc9a63077001339cec65317e3e72cf053d8055ec5f1ac"
+    },
+    {
+      "path": "MAMS/data/MAMS-ACSA/raw/val.xml",
+      "status": "downloaded",
+      "source_url": "https://raw.githubusercontent.com/siat-nlp/MAMS-for-ABSA/cddcdb0f423b3fdb2c76b70744737abed3a00d17/data/MAMS-ACSA/raw/val.xml",
+      "source_revision": "cddcdb0f423b3fdb2c76b70744737abed3a00d17",
+      "sentences": 400,
+      "aspect_terms": 0,
+      "aspect_categories": 888,
+      "bytes": 135397,
+      "sha256": "d4536b0ced8e77f53f88ff1835fcf561e0de02e41a509982f76eb9b8a375b2ed"
+    },
+    {
+      "path": "MAMS/data/MAMS-ACSA/raw/test.xml",
+      "status": "downloaded",
+      "source_url": "https://raw.githubusercontent.com/siat-nlp/MAMS-for-ABSA/cddcdb0f423b3fdb2c76b70744737abed3a00d17/data/MAMS-ACSA/raw/test.xml",
+      "source_revision": "cddcdb0f423b3fdb2c76b70744737abed3a00d17",
+      "sentences": 400,
+      "aspect_terms": 0,
+      "aspect_categories": 901,
+      "bytes": 136615,
+      "sha256": "cc0dc3c5b711653daa9ac886c6517d3ebf8752954b73715692d7765fec4a57f5"
+    }
+  ],
+  "failures": [],
+  "note": "Existing valid XML files are kept; their remote revision is not verified. Original labels and character offsets are not modified."
+}

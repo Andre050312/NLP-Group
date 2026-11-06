@@ -147,7 +147,9 @@ python -m absa_enhanced train --dataset restaurant --output runs/enhanced_restau
 python -m absa_enhanced train --dataset restaurant --encoder microsoft/deberta-v3-base --output runs/deberta_joint_restaurant_seed42 --epochs 6 --batch-size 2 --grad-accum 4 --max-length 192 --stride 64 --seed 42 --device auto
 ```
 
-默认微批量 2、累积 4，有效批量 8。默认开启梯度检查点，CUDA 下自动启用混合精度；实际显存需求取决于输入长度、方面数量与设备配置。首次需联网下载编码器。每个 epoch 会输出验证指标，按**给定正确方面的验证 Macro-F1**保存最佳模型，连续 2 轮未改善则早停；最终在最佳模型上做一次测试。
+默认微批量 2、累积 4，有效批量 8。默认开启梯度检查点，CUDA 下自动启用混合精度；实际显存需求取决于输入长度、方面数量与设备配置。首次需联网下载编码器。每个 epoch 输出验证指标；默认按**给定正确方面的验证 Accuracy**保存主模型 `best/`，Accuracy 相同时以 Macro-F1 决胜。同时保存验证 Macro-F1 最佳的 `best_macro_f1/`（同分时以 Accuracy 决胜）。连续 2 轮主选择指标及其决胜指标均未改善则早停；训练结束后只对主模型做一次测试。
+
+`checkpoint_index.json` 记录每个保存标准对应的目录、轮次和验证分数。两项目标分别保存，不表示同一个模型一定同时最大化它们；额外 checkpoint 会增加磁盘占用。使用 `--selection-metric gold_macro_f1` 可恢复原主选择规则，此时 `best/` 对应 Macro-F1 最佳，`best_accuracy/` 对应 Accuracy 最佳。该规则只改变 checkpoint 选择，不改变训练损失。
 
 重点研究端到端系统时，可在独立实验改为 `--selection-metric end_to_end_f1`；不要根据测试表现反复切换标准。输出目录必须为空；没有实现中断续训，失败后应使用新目录重试。
 
@@ -234,6 +236,8 @@ runs/deberta_joint_restaurant_seed42/
 │   ├── encoder_config/          # 编码器配置
 │   └── tokenizer/               # 分词器
 ├── run_config.json              # 参数、版本、类别权重、去重统计
+├── checkpoint_index.json        # 不同验证指标最佳模型的目录与轮次
+├── best_macro_f1/               # 默认 Accuracy 主规则下另存的 Macro-F1 最佳模型
 ├── split_manifest.json          # 划分文本与 ID
 ├── history.json                 # 每轮训练与验证指标
 ├── training_summary.json        # 耗时、最佳成绩、CUDA峰值分配显存

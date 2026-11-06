@@ -142,6 +142,10 @@ class EnhancedTests(unittest.TestCase):
             "--device", "cpu", "--precision", "no")
         metrics = json.loads((output / "test_metrics.json").read_text(encoding="utf-8"))
         self.assertEqual(metrics["gold_aspect_sentiment"]["examples"], 3)
+        index = json.loads((output / "checkpoint_index.json").read_text(encoding="utf-8"))
+        self.assertEqual(index["gold_accuracy"]["directory"], "best")
+        self.assertEqual(index["gold_macro_f1"]["directory"], "best_macro_f1")
+        self.assertTrue((output / "best_macro_f1/model.pt").is_file())
         run("evaluate", "--checkpoint", output / "best", "--test", test,
             "--output", self.directory / "evaluation", "--device", "cpu")
         result = json.loads(run("predict", "--checkpoint", output / "best", "--text", "food good", "--device", "cpu"))

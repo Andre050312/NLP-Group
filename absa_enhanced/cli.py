@@ -16,6 +16,7 @@ from tqdm.auto import tqdm
 from .data import Aspect, Collator, Document, SENTIMENTS, WindowDataset, prepare_splits, read_documents
 from .evaluation import autocast_context, evaluate, move_batch, save_results
 from .model import JointABSA, joint_loss
+from .selection import checkpoint_directory, selection_key
 
 
 def write_json(path, value):
@@ -149,6 +150,8 @@ def train(args):
                                                 for name, value in config["token_alignment"].items() if value is not None},
                       "train_windows": len(train_data), "effective_batch_size": config["effective_batch_size"]}), flush=True)
     history, best_score, bad_epochs = [], -1.0, 0
+    criteria = list(dict.fromkeys((args.selection_metric, "gold_accuracy", "gold_macro_f1")))
+    best_keys, checkpoint_index = {}, {}
     started = time.monotonic()
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats()
@@ -184,17 +187,30 @@ def train(args):
             totals["extraction_loss"] += extraction_loss.item()
             progress.set_postfix(loss=f"{loss.item():.4f}")
         val_metrics, gold_rows, sentence_rows = evaluate(model, tokenizer, val_data, device, args.batch_size, precision)
-        score = (val_metrics["gold_aspect_sentiment"]["macro_f1"] if args.selection_metric == "gold_macro_f1"
-                 else val_metrics["end_to_end"]["f1"])
+        key = selection_key(val_metrics, args.selection_metric)
+        score = key[0]
         record = {"epoch": epoch + 1, "training": {k: v / len(loader) for k, v in totals.items()},
                   "validation": val_metrics, "selection_score": score}
         history.append(record)
         write_json(output / "history.json", history)
         print(json.dumps(record, ensure_ascii=False), flush=True)
-        if score > best_score:
+        primary_improved = args.selection_metric not in best_keys or key > best_keys[args.selection_metric]
+        for criterion in criteria:
+            candidate = selection_key(val_metrics, criterion)
+            if criterion not in best_keys or candidate > best_keys[criterion]:
+                best_keys[criterion] = candidate
+                directory = checkpoint_directory(criterion, args.selection_metric)
+                model.save_checkpoint(output / directory, tokenizer,
+                                      {**metadata, "selected_by": criterion, "selected_epoch": epoch + 1,
+                                       "validation_accuracy": val_metrics["gold_aspect_sentiment"]["accuracy"],
+                                       "validation_macro_f1": val_metrics["gold_aspect_sentiment"]["macro_f1"]})
+                prefix = "validation_best" if criterion == args.selection_metric else f"validation_{directory}"
+                save_results(output, val_metrics, gold_rows, sentence_rows, prefix)
+                checkpoint_index[criterion] = {"directory": directory, "epoch": epoch + 1,
+                                               "selection_key": list(candidate)}
+        write_json(output / "checkpoint_index.json", checkpoint_index)
+        if primary_improved:
             best_score, bad_epochs = score, 0
-            model.save_checkpoint(output / "best", tokenizer, metadata)
-            save_results(output, val_metrics, gold_rows, sentence_rows, "validation_best")
         else:
             bad_epochs += 1
         if bad_epochs >= args.patience:
@@ -203,6 +219,7 @@ def train(args):
     write_json(output / "training_summary.json", {
         "seconds": time.monotonic() - started, "epochs_completed": len(history),
         "selection_metric": args.selection_metric, "best_validation_score": best_score,
+        "checkpoints": checkpoint_index,
         "peak_cuda_allocated_gib": torch.cuda.max_memory_allocated() / 2**30 if device.type == "cuda" else None})
     if test_data is not None:
         # Release training tensors and optimizer state before loading the best model.
@@ -286,7 +303,7 @@ def main():
     tr.add_argument("--dropout", type=float, default=0.15)
     tr.add_argument("--no-fusion", action="store_true")
     tr.add_argument("--no-gradient-checkpointing", action="store_true")
-    tr.add_argument("--selection-metric", choices=["gold_macro_f1", "end_to_end_f1"], default="gold_macro_f1")
+    tr.add_argument("--selection-metric", choices=["gold_accuracy", "gold_macro_f1", "end_to_end_f1"], default="gold_accuracy")
     tr.add_argument("--patience", type=int, default=2)
     tr.add_argument("--seed", type=int, default=42)
     tr.add_argument("--validation-fraction", type=float, default=0.15)

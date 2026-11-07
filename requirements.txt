@@ -10,3 +10,5 @@ protobuf>=4.25,<7
 safetensors>=0.4.3,<1
 tqdm>=4.66,<5
 numpy>=1.26,<3
+# Group-stratified cross-validation; shared by pair and joint models.
+scikit-learn>=1.5,<2

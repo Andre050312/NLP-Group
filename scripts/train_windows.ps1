@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("restaurant", "laptop", "mams")]
+    [ValidateSet("restaurant", "restaurant2015", "restaurant2016", "mams")]
     [string]$Dataset = "restaurant",
     [string]$Output = "",
     [string]$Encoder = "microsoft/deberta-v3-base",

@@ -1,0 +1,57 @@
+{
+  "dataset": "SemEval-2014 Restaurant",
+  "task": "explicit_aspect_term_sentiment",
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
+  "splits": {
+    "train": {
+      "dataset": "restaurant",
+      "path": "Restaurant3/train.xml",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2014Task4/resolve/3fd43769112ef6517c263e303fbb7dc3002c35df/SemEval%2714-ABSA-TrainData_v2%20%26%20AnnotationGuidelines/Restaurants_Train_v2.xml",
+      "source_revision": "3fd43769112ef6517c263e303fbb7dc3002c35df",
+      "source_sha256": "223601da1bded6caa4ef9cf91a7007578141ca6d8ed50d5a5c217565f89d2fc5",
+      "source_format": "semeval2014",
+      "sha256": "4fd43d7926ac533a11052f6e0ff89d781713d292ffd466bf0d3d575e4e0af9ee",
+      "statistics": {
+        "sentences": 3041,
+        "aspect_terms": 3602,
+        "aspect_categories": 3518,
+        "label_counts": {
+          "negative": 805,
+          "positive": 2164,
+          "neutral": 633
+        }
+      },
+      "conversion_audit": {
+        "excluded_conflict_aspectCategory": 195,
+        "excluded_conflict_aspectTerm": 91
+      }
+    },
+    "test": {
+      "dataset": "restaurant",
+      "path": "Restaurant3/test.xml",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2014Task4/resolve/3fd43769112ef6517c263e303fbb7dc3002c35df/ABSA_Gold_TestData/Restaurants_Test_Gold.xml",
+      "source_revision": "3fd43769112ef6517c263e303fbb7dc3002c35df",
+      "source_sha256": "f21509cfa37e16534cd5b2da043be487355b64ef48fe8d6aaacaeca6b49cc0fb",
+      "source_format": "semeval2014",
+      "sha256": "ac1926b75e7d2c1ed161c4c94eedd8998401b68c7b181c27c852ef0bb9604120",
+      "statistics": {
+        "sentences": 800,
+        "aspect_terms": 1120,
+        "aspect_categories": 973,
+        "label_counts": {
+          "positive": 728,
+          "neutral": 196,
+          "negative": 196
+        }
+      },
+      "conversion_audit": {
+        "excluded_conflict_aspectTerm": 14,
+        "excluded_conflict_aspectCategory": 52
+      }
+    }
+  }
+}

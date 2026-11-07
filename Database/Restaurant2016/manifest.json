@@ -1,0 +1,63 @@
+{
+  "dataset": "SemEval-2016 Restaurant",
+  "task": "explicit_aspect_term_sentiment",
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
+  "splits": {
+    "train": {
+      "dataset": "restaurant2016",
+      "path": "Restaurant2016/train.xml",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2016Task5/resolve/0aee08ca3982a1dd5b05fb673f86d53267aab9be/ABSA16_Restaurants_Train_SB1_v2.xml",
+      "source_revision": "0aee08ca3982a1dd5b05fb673f86d53267aab9be",
+      "source_sha256": "4ad20d6e7b3db590f038aae0de5d010c2e93e8c3028d7b821242fd4d69d2030d",
+      "source_format": "opinions",
+      "sha256": "f14686f40083a47c692e4bb26c158e2eeb2d778b41c214e031b334513affcab0",
+      "statistics": {
+        "sentences": 1937,
+        "aspect_terms": 1714,
+        "aspect_categories": 0,
+        "label_counts": {
+          "negative": 433,
+          "positive": 1220,
+          "neutral": 61
+        }
+      },
+      "conversion_audit": {
+        "collapsed_duplicate_opinions": 106,
+        "excluded_overlapping_spans": 0,
+        "excluded_implicit_targets": 627,
+        "excluded_out_of_scope_sentences": 63,
+        "excluded_ambiguous_spans": 29
+      }
+    },
+    "test": {
+      "dataset": "restaurant2016",
+      "path": "Restaurant2016/test.xml",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2016Task5/resolve/0aee08ca3982a1dd5b05fb673f86d53267aab9be/EN_REST_SB1_TEST.xml.gold",
+      "source_revision": "0aee08ca3982a1dd5b05fb673f86d53267aab9be",
+      "source_sha256": "0a9a22375424fd7dd305abd4a5b8b7c1955f05382c5b6a0b75f85a8152043175",
+      "source_format": "opinions",
+      "sha256": "30f527166dd0e09772ed801b9245fead7353589a5ecafbd8cfa293d45eb53b17",
+      "statistics": {
+        "sentences": 642,
+        "aspect_terms": 601,
+        "aspect_categories": 0,
+        "label_counts": {
+          "positive": 460,
+          "neutral": 28,
+          "negative": 113
+        }
+      },
+      "conversion_audit": {
+        "excluded_implicit_targets": 209,
+        "excluded_overlapping_spans": 0,
+        "collapsed_duplicate_opinions": 25,
+        "excluded_out_of_scope_sentences": 34,
+        "excluded_ambiguous_spans": 11
+      }
+    }
+  }
+}

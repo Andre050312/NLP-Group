@@ -54,13 +54,9 @@ def dataset_paths(args):
         directory = root / "MAMS/data/MAMS-ATSA/raw"
         paths = (directory / "train.xml", directory / "val.xml", directory / "test.xml")
     else:
-        directory = root / "SemEval2014"
-        domain = "Restaurants" if args.dataset == "restaurant" else "Laptop"
-        candidates = list(directory.rglob(f"{domain}_Train_v2.xml"))
-        if len(candidates) != 1:
-            raise ValueError(f"Expected one {domain}_Train_v2.xml under {directory}; found {len(candidates)}")
-        test_file = "Restaurants_Test_Gold.xml" if args.dataset == "restaurant" else "Laptops_Test_Gold.xml"
-        paths = (candidates[0], None, directory / "ABSA_Gold_TestData" / test_file)
+        directory = root / {"restaurant": "Restaurant3", "restaurant2015": "Restaurant2015",
+                            "restaurant2016": "Restaurant2016"}[args.dataset]
+        paths = (directory / "train.xml", None, directory / "test.xml")
     return args.train or paths[0], args.validation or paths[1], args.test or paths[2]
 
 
@@ -324,7 +320,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     tr = sub.add_parser("train")
-    tr.add_argument("--dataset", choices=["restaurant", "laptop", "mams", "custom"], default="restaurant")
+    tr.add_argument("--dataset", choices=["restaurant", "restaurant2015", "restaurant2016", "mams", "custom"], default="restaurant")
     tr.add_argument("--data-root", default="Database")
     tr.add_argument("--train")
     tr.add_argument("--validation")
@@ -368,9 +364,21 @@ def main():
         command.add_argument("--batch-size", type=int, default=2)
         command.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
         command.add_argument("--precision", choices=["auto", "no", "bf16", "fp16"], default="auto")
+    cv = sub.add_parser("cross-validate", parents=[tr], add_help=False,
+                        help="Grouped K-fold evaluation with separate inner validation")
+    cv.add_argument("--folds", type=int, default=5)
+    cv.add_argument("--group-by", choices=["auto", "sentence", "review"], default="auto",
+                    help="auto groups reviews for Restaurant2015/2016, exact sentences otherwise")
+    cv.add_argument("--include-validation", action="store_true",
+                    help="Include the original validation source in the CV pool; never include official test")
+    cv.add_argument("--plan-only", action="store_true", help="Write and audit fold XML files without training")
+    cv.add_argument("--resume", action="store_true", help="Skip completed folds if source/config hashes match")
     args = parser.parse_args()
     if args.command == "train":
         train(args)
+    elif args.command == "cross-validate":
+        from .cross_validation import cross_validate
+        cross_validate(args)
     else:
         if args.batch_size < 1:
             parser.error("batch-size must be positive")

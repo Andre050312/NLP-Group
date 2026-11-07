@@ -1,0 +1,47 @@
+{
+  "exact_text_overlap": [
+    {
+      "left": "Restaurant3",
+      "right": "Restaurant2015",
+      "shared_texts": 1117,
+      "left_train_right_test": 3,
+      "right_train_left_test": 2
+    },
+    {
+      "left": "Restaurant3",
+      "right": "Restaurant2016",
+      "shared_texts": 1116,
+      "left_train_right_test": 0,
+      "right_train_left_test": 2
+    },
+    {
+      "left": "Restaurant3",
+      "right": "MAMS",
+      "shared_texts": 102,
+      "left_train_right_test": 13,
+      "right_train_left_test": 9
+    },
+    {
+      "left": "Restaurant2015",
+      "right": "Restaurant2016",
+      "shared_texts": 1932,
+      "left_train_right_test": 0,
+      "right_train_left_test": 662
+    },
+    {
+      "left": "Restaurant2015",
+      "right": "MAMS",
+      "shared_texts": 41,
+      "left_train_right_test": 9,
+      "right_train_left_test": 0
+    },
+    {
+      "left": "Restaurant2016",
+      "right": "MAMS",
+      "shared_texts": 42,
+      "left_train_right_test": 9,
+      "right_train_left_test": 1
+    }
+  ],
+  "policy": "Do not merge datasets without removing all held-out test and validation overlap."
+}

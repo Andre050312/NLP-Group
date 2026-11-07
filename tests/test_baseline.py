@@ -12,29 +12,19 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class DataTests(unittest.TestCase):
     def test_actual_downloaded_xml(self):
+        from scripts.download_datasets import EXPECTED_SHA256, resources, validate_xml
         database = ROOT / 'Database'
-        semeval = database / 'SemEval2014'
-        files, missing = [], []
-        for name in ('Laptop_Train_v2.xml', 'Restaurants_Train_v2.xml'):
-            matches = list(semeval.rglob(name))
-            if len(matches) == 1:
-                files.append(matches[0])
-            else:
-                missing.append(f'{semeval}/**/{name} (found {len(matches)})')
-        expected = [semeval / 'ABSA_Gold_TestData' / name for name in
-                    ('Laptops_Test_Gold.xml', 'Restaurants_Test_Gold.xml')]
-        expected += [database / 'MAMS/data/MAMS-ATSA/raw' / f'{split}.xml'
-                     for split in ('train', 'val', 'test')]
-        for path in expected:
-            if path.is_file():
-                files.append(path)
-            else:
-                missing.append(str(path))
+        expected = [database / relative for relative, _, _ in resources('all')]
+        missing = [str(path) for path in expected if not path.is_file()]
         self.assertFalse(missing,
                          '\nDataset files missing or ambiguous:\n' + '\n'.join(missing) +
                          '\nDownload/copy the datasets into the Database directory described in README.md.' +
                          '\nModel-only offline tests: python -m unittest discover -s tests -p "test_enhanced.py" -v')
-        for path in files:
+        for path in expected:
+            validated = validate_xml(path, EXPECTED_SHA256[path.relative_to(database).as_posix()])
+            self.assertEqual(set(validated['label_counts']), {'negative', 'neutral', 'positive'})
+            if not validated['aspect_terms']:
+                continue  # MAMS-ACSA is a category task, not an aspect-term reader input.
             examples, stats = read_xml(path)
             self.assertTrue(examples)
             self.assertNotIn('conflict', {x.label for x in examples})

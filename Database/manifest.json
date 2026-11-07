@@ -1,291 +1,275 @@
 {
-  "sources": [
-    {
-      "directory": "SemEval2014",
-      "remote": "https://huggingface.co/datasets/alexcadillon/SemEval2014Task4",
-      "commit": "3fd43769112ef6517c263e303fbb7dc3002c35df"
-    },
-    {
-      "directory": "MAMS",
-      "remote": "https://github.com/siat-nlp/MAMS-for-ABSA.git",
-      "commit": "cddcdb0f423b3fdb2c76b70744737abed3a00d17"
-    },
-    {
-      "directory": "ASAP",
-      "remote": "https://github.com/Meituan-Dianping/asap.git",
-      "commit": "975122a60065240124df62cb4d5dbfd19ed9ef2c"
-    }
-  ],
+  "policy": "Only three-class restaurant datasets; never persist raw mixed-label sources",
   "files": [
     {
-      "path": "SemEval2014/ABSA_Gold_TestData/Laptops_Test_Gold.xml",
-      "bytes": 178754,
-      "sha256": "aa3a30c9dd7e0eacf9b69e898eb4118a36c1b4f391a30a08dfc41a38d8b8745b",
-      "sentences": 800,
-      "aspect_terms": 654,
-      "aspect_categories": 0
+      "dataset": "restaurant",
+      "path": "Restaurant3/train.xml",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2014Task4/resolve/3fd43769112ef6517c263e303fbb7dc3002c35df/SemEval%2714-ABSA-TrainData_v2%20%26%20AnnotationGuidelines/Restaurants_Train_v2.xml",
+      "source_revision": "3fd43769112ef6517c263e303fbb7dc3002c35df",
+      "source_sha256": "223601da1bded6caa4ef9cf91a7007578141ca6d8ed50d5a5c217565f89d2fc5",
+      "source_format": "semeval2014",
+      "sha256": "4fd43d7926ac533a11052f6e0ff89d781713d292ffd466bf0d3d575e4e0af9ee",
+      "statistics": {
+        "sentences": 3041,
+        "aspect_terms": 3602,
+        "aspect_categories": 3518,
+        "label_counts": {
+          "negative": 805,
+          "positive": 2164,
+          "neutral": 633
+        }
+      },
+      "conversion_audit": {
+        "excluded_conflict_aspectCategory": 195,
+        "excluded_conflict_aspectTerm": 91
+      }
     },
     {
-      "path": "SemEval2014/ABSA_Gold_TestData/Restaurants_Test_Gold.xml",
-      "bytes": 359021,
-      "sha256": "f21509cfa37e16534cd5b2da043be487355b64ef48fe8d6aaacaeca6b49cc0fb",
-      "sentences": 800,
-      "aspect_terms": 1134,
-      "aspect_categories": 1025
+      "dataset": "restaurant",
+      "path": "Restaurant3/test.xml",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2014Task4/resolve/3fd43769112ef6517c263e303fbb7dc3002c35df/ABSA_Gold_TestData/Restaurants_Test_Gold.xml",
+      "source_revision": "3fd43769112ef6517c263e303fbb7dc3002c35df",
+      "source_sha256": "f21509cfa37e16534cd5b2da043be487355b64ef48fe8d6aaacaeca6b49cc0fb",
+      "source_format": "semeval2014",
+      "sha256": "ac1926b75e7d2c1ed161c4c94eedd8998401b68c7b181c27c852ef0bb9604120",
+      "statistics": {
+        "sentences": 800,
+        "aspect_terms": 1120,
+        "aspect_categories": 973,
+        "label_counts": {
+          "positive": 728,
+          "neutral": 196,
+          "negative": 196
+        }
+      },
+      "conversion_audit": {
+        "excluded_conflict_aspectTerm": 14,
+        "excluded_conflict_aspectCategory": 52
+      }
     },
     {
-      "path": "SemEval2014/SemEval'14-ABSA-TrainData_v2 & AnnotationGuidelines/Laptop_Train_v2.xml",
-      "bytes": 687312,
-      "sha256": "efec2ed73b4efb83b47c697114d800149c558118884afa80362a6e975ba7248c",
-      "sentences": 3045,
-      "aspect_terms": 2358,
-      "aspect_categories": 0
+      "dataset": "restaurant2015",
+      "path": "Restaurant2015/train.xml",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2015Task12/resolve/06c063130173cd6f07268d63c1386aee133725ba/ABSA15_RestaurantsTrain/ABSA-15_Restaurants_Train_Final.xml",
+      "source_revision": "06c063130173cd6f07268d63c1386aee133725ba",
+      "source_sha256": "813c3bf02cfdce98e1eccac93eca46e0123ebd8a2848a506d18bd3c1be9037df",
+      "source_format": "opinions",
+      "sha256": "7a3bc8e647adf54629cb1f367d2502adb03b9db7ac6634b6f4cb5193c0b71a44",
+      "statistics": {
+        "sentences": 1275,
+        "aspect_terms": 1188,
+        "aspect_categories": 0,
+        "label_counts": {
+          "negative": 252,
+          "positive": 902,
+          "neutral": 34
+        }
+      },
+      "conversion_audit": {
+        "collapsed_duplicate_opinions": 69,
+        "excluded_overlapping_spans": 0,
+        "excluded_implicit_targets": 375,
+        "excluded_out_of_scope_sentences": 40,
+        "excluded_ambiguous_spans": 11
+      }
     },
     {
-      "path": "SemEval2014/SemEval'14-ABSA-TrainData_v2 & AnnotationGuidelines/Restaurants_Train_v2.xml",
-      "bytes": 1235614,
-      "sha256": "223601da1bded6caa4ef9cf91a7007578141ca6d8ed50d5a5c217565f89d2fc5",
-      "sentences": 3041,
-      "aspect_terms": 3693,
-      "aspect_categories": 3713
+      "dataset": "restaurant2015",
+      "path": "Restaurant2015/test.xml",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2015Task12/resolve/06c063130173cd6f07268d63c1386aee133725ba/ABSA15_Restaurants_Test.xml",
+      "source_revision": "06c063130173cd6f07268d63c1386aee133725ba",
+      "source_sha256": "9a9570bebda154204bd1261ac53454cefafbd321b541fcc82d663f35b1fb3882",
+      "source_format": "opinions",
+      "sha256": "34d21ffc6522f8424cffc5436b2b71cce988eb47fa5face48ff43a9f7375fb3a",
+      "statistics": {
+        "sentences": 663,
+        "aspect_terms": 525,
+        "aspect_categories": 0,
+        "label_counts": {
+          "positive": 319,
+          "negative": 179,
+          "neutral": 27
+        }
+      },
+      "conversion_audit": {
+        "collapsed_duplicate_opinions": 37,
+        "excluded_overlapping_spans": 0,
+        "excluded_implicit_targets": 248,
+        "excluded_out_of_scope_sentences": 22,
+        "excluded_ambiguous_spans": 17
+      }
     },
     {
-      "path": "SemEval2014/laptops-trial.xml",
-      "bytes": 18547,
-      "sha256": "0971a30e6add454d344ac011385fb8407db4193db048c8cd8e7a82908ac5172d",
-      "sentences": 100,
-      "aspect_terms": 49,
-      "aspect_categories": 0
+      "dataset": "restaurant2016",
+      "path": "Restaurant2016/train.xml",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2016Task5/resolve/0aee08ca3982a1dd5b05fb673f86d53267aab9be/ABSA16_Restaurants_Train_SB1_v2.xml",
+      "source_revision": "0aee08ca3982a1dd5b05fb673f86d53267aab9be",
+      "source_sha256": "4ad20d6e7b3db590f038aae0de5d010c2e93e8c3028d7b821242fd4d69d2030d",
+      "source_format": "opinions",
+      "sha256": "f14686f40083a47c692e4bb26c158e2eeb2d778b41c214e031b334513affcab0",
+      "statistics": {
+        "sentences": 1937,
+        "aspect_terms": 1714,
+        "aspect_categories": 0,
+        "label_counts": {
+          "negative": 433,
+          "positive": 1220,
+          "neutral": 61
+        }
+      },
+      "conversion_audit": {
+        "collapsed_duplicate_opinions": 106,
+        "excluded_overlapping_spans": 0,
+        "excluded_implicit_targets": 627,
+        "excluded_out_of_scope_sentences": 63,
+        "excluded_ambiguous_spans": 29
+      }
     },
     {
-      "path": "SemEval2014/restaurants-trial.xml",
-      "bytes": 35675,
-      "sha256": "48d758803cd5183e9b8ee8a04520889a4b7ff371a2ff66e399ba193620e5bc41",
-      "sentences": 100,
-      "aspect_terms": 96,
-      "aspect_categories": 114
+      "dataset": "restaurant2016",
+      "path": "Restaurant2016/test.xml",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2016Task5/resolve/0aee08ca3982a1dd5b05fb673f86d53267aab9be/EN_REST_SB1_TEST.xml.gold",
+      "source_revision": "0aee08ca3982a1dd5b05fb673f86d53267aab9be",
+      "source_sha256": "0a9a22375424fd7dd305abd4a5b8b7c1955f05382c5b6a0b75f85a8152043175",
+      "source_format": "opinions",
+      "sha256": "30f527166dd0e09772ed801b9245fead7353589a5ecafbd8cfa293d45eb53b17",
+      "statistics": {
+        "sentences": 642,
+        "aspect_terms": 601,
+        "aspect_categories": 0,
+        "label_counts": {
+          "positive": 460,
+          "neutral": 28,
+          "negative": 113
+        }
+      },
+      "conversion_audit": {
+        "excluded_implicit_targets": 209,
+        "excluded_overlapping_spans": 0,
+        "collapsed_duplicate_opinions": 25,
+        "excluded_out_of_scope_sentences": 34,
+        "excluded_ambiguous_spans": 11
+      }
     },
     {
-      "path": "MAMS/data/MAMS-ACSA/raw/test.xml",
-      "bytes": 136615,
-      "sha256": "cc0dc3c5b711653daa9ac886c6517d3ebf8752954b73715692d7765fec4a57f5",
-      "sentences": 400,
-      "aspect_terms": 0,
-      "aspect_categories": 901
-    },
-    {
-      "path": "MAMS/data/MAMS-ACSA/raw/train.xml",
-      "bytes": 1081235,
-      "sha256": "24c6a1a9f769ec5a9a1fc9a63077001339cec65317e3e72cf053d8055ec5f1ac",
-      "sentences": 3149,
-      "aspect_terms": 0,
-      "aspect_categories": 7090
-    },
-    {
-      "path": "MAMS/data/MAMS-ACSA/raw/val.xml",
-      "bytes": 135397,
-      "sha256": "d4536b0ced8e77f53f88ff1835fcf561e0de02e41a509982f76eb9b8a375b2ed",
-      "sentences": 400,
-      "aspect_terms": 0,
-      "aspect_categories": 888
-    },
-    {
-      "path": "MAMS/data/MAMS-ATSA/raw/test.xml",
-      "bytes": 196660,
-      "sha256": "f1a5f53b785335e9c57a1f82b1415026f821040b9e9662a2e467d47a54f20aa9",
-      "sentences": 500,
-      "aspect_terms": 1336,
-      "aspect_categories": 0
-    },
-    {
+      "dataset": "mams",
       "path": "MAMS/data/MAMS-ATSA/raw/train.xml",
-      "bytes": 1641623,
+      "source_url": "https://raw.githubusercontent.com/siat-nlp/MAMS-for-ABSA/cddcdb0f423b3fdb2c76b70744737abed3a00d17/data/MAMS-ATSA/raw/train.xml",
+      "source_revision": "cddcdb0f423b3fdb2c76b70744737abed3a00d17",
+      "source_sha256": "26ba39142b28169ebc80408294f4e27493bd1e127c6aa2e85ab4bc750bf8017a",
+      "source_format": "native",
       "sha256": "26ba39142b28169ebc80408294f4e27493bd1e127c6aa2e85ab4bc750bf8017a",
-      "sentences": 4297,
-      "aspect_terms": 11186,
-      "aspect_categories": 0
+      "statistics": {
+        "sentences": 4297,
+        "aspect_terms": 11186,
+        "aspect_categories": 0,
+        "label_counts": {
+          "negative": 2764,
+          "positive": 3380,
+          "neutral": 5042
+        }
+      },
+      "conversion_audit": {}
     },
     {
+      "dataset": "mams",
       "path": "MAMS/data/MAMS-ATSA/raw/val.xml",
-      "bytes": 195718,
+      "source_url": "https://raw.githubusercontent.com/siat-nlp/MAMS-for-ABSA/cddcdb0f423b3fdb2c76b70744737abed3a00d17/data/MAMS-ATSA/raw/val.xml",
+      "source_revision": "cddcdb0f423b3fdb2c76b70744737abed3a00d17",
+      "source_sha256": "5b7d225e2f9482a3814f15aed04ff8323105171a47d22d9899d871c4e0ba86ca",
+      "source_format": "native",
       "sha256": "5b7d225e2f9482a3814f15aed04ff8323105171a47d22d9899d871c4e0ba86ca",
-      "sentences": 500,
-      "aspect_terms": 1332,
-      "aspect_categories": 0
+      "statistics": {
+        "sentences": 500,
+        "aspect_terms": 1332,
+        "aspect_categories": 0,
+        "label_counts": {
+          "neutral": 604,
+          "positive": 403,
+          "negative": 325
+        }
+      },
+      "conversion_audit": {}
     },
     {
-      "path": "ASAP/data/dev.csv",
-      "bytes": 4891291,
-      "sha256": "54efc8f6bc26d63a9f87e3418cd68e47f2eb13a19085e85abe63f3eafafe2b44",
-      "rows": 4940,
-      "columns": [
-        "id",
-        "review",
-        "star",
-        "Location#Transportation",
-        "Location#Downtown",
-        "Location#Easy_to_find",
-        "Service#Queue",
-        "Service#Hospitality",
-        "Service#Parking",
-        "Service#Timely",
-        "Price#Level",
-        "Price#Cost_effective",
-        "Price#Discount",
-        "Ambience#Decoration",
-        "Ambience#Noise",
-        "Ambience#Space",
-        "Ambience#Sanitary",
-        "Food#Portion",
-        "Food#Taste",
-        "Food#Appearance",
-        "Food#Recommend"
-      ]
+      "dataset": "mams",
+      "path": "MAMS/data/MAMS-ATSA/raw/test.xml",
+      "source_url": "https://raw.githubusercontent.com/siat-nlp/MAMS-for-ABSA/cddcdb0f423b3fdb2c76b70744737abed3a00d17/data/MAMS-ATSA/raw/test.xml",
+      "source_revision": "cddcdb0f423b3fdb2c76b70744737abed3a00d17",
+      "source_sha256": "f1a5f53b785335e9c57a1f82b1415026f821040b9e9662a2e467d47a54f20aa9",
+      "source_format": "native",
+      "sha256": "f1a5f53b785335e9c57a1f82b1415026f821040b9e9662a2e467d47a54f20aa9",
+      "statistics": {
+        "sentences": 500,
+        "aspect_terms": 1336,
+        "aspect_categories": 0,
+        "label_counts": {
+          "neutral": 607,
+          "positive": 400,
+          "negative": 329
+        }
+      },
+      "conversion_audit": {}
     },
     {
-      "path": "ASAP/data/dev_sample.csv",
-      "bytes": 99417,
-      "sha256": "8cc713d952e20831f7d5314c6b0a0d5f68d062b73f883be18735363822ed5360",
-      "rows": 100,
-      "columns": [
-        "index",
-        "reviewbody",
-        "star",
-        "location_traffic",
-        "location_distance_from_business_district",
-        "location_easy_to_find",
-        "service_wait_time",
-        "service_waiters_attitude",
-        "service_parking_convenience",
-        "service_serving_speed",
-        "price_level",
-        "price_cost_effective",
-        "price_discount",
-        "environment_decoration",
-        "environment_noise",
-        "environment_space",
-        "environment_cleaness",
-        "dish_portion",
-        "dish_taste",
-        "dish_look",
-        "dish_recommendation"
-      ]
+      "dataset": "mams",
+      "path": "MAMS/data/MAMS-ACSA/raw/train.xml",
+      "source_url": "https://raw.githubusercontent.com/siat-nlp/MAMS-for-ABSA/cddcdb0f423b3fdb2c76b70744737abed3a00d17/data/MAMS-ACSA/raw/train.xml",
+      "source_revision": "cddcdb0f423b3fdb2c76b70744737abed3a00d17",
+      "source_sha256": "24c6a1a9f769ec5a9a1fc9a63077001339cec65317e3e72cf053d8055ec5f1ac",
+      "source_format": "native",
+      "sha256": "24c6a1a9f769ec5a9a1fc9a63077001339cec65317e3e72cf053d8055ec5f1ac",
+      "statistics": {
+        "sentences": 3149,
+        "aspect_terms": 0,
+        "aspect_categories": 7090,
+        "label_counts": {
+          "positive": 1929,
+          "neutral": 3077,
+          "negative": 2084
+        }
+      },
+      "conversion_audit": {}
     },
     {
-      "path": "ASAP/data/test.csv",
-      "bytes": 4850010,
-      "sha256": "217dd27c1d5699067952474e40824935d56ecf8b5047950d6da3d1222976a2bd",
-      "rows": 4940,
-      "columns": [
-        "id",
-        "review",
-        "star",
-        "Location#Transportation",
-        "Location#Downtown",
-        "Location#Easy_to_find",
-        "Service#Queue",
-        "Service#Hospitality",
-        "Service#Parking",
-        "Service#Timely",
-        "Price#Level",
-        "Price#Cost_effective",
-        "Price#Discount",
-        "Ambience#Decoration",
-        "Ambience#Noise",
-        "Ambience#Space",
-        "Ambience#Sanitary",
-        "Food#Portion",
-        "Food#Taste",
-        "Food#Appearance",
-        "Food#Recommend"
-      ]
+      "dataset": "mams",
+      "path": "MAMS/data/MAMS-ACSA/raw/val.xml",
+      "source_url": "https://raw.githubusercontent.com/siat-nlp/MAMS-for-ABSA/cddcdb0f423b3fdb2c76b70744737abed3a00d17/data/MAMS-ACSA/raw/val.xml",
+      "source_revision": "cddcdb0f423b3fdb2c76b70744737abed3a00d17",
+      "source_sha256": "d4536b0ced8e77f53f88ff1835fcf561e0de02e41a509982f76eb9b8a375b2ed",
+      "source_format": "native",
+      "sha256": "d4536b0ced8e77f53f88ff1835fcf561e0de02e41a509982f76eb9b8a375b2ed",
+      "statistics": {
+        "sentences": 400,
+        "aspect_terms": 0,
+        "aspect_categories": 888,
+        "label_counts": {
+          "neutral": 388,
+          "positive": 241,
+          "negative": 259
+        }
+      },
+      "conversion_audit": {}
     },
     {
-      "path": "ASAP/data/test_sample.csv",
-      "bytes": 108301,
-      "sha256": "a07c009fcf0904d9d5e39189782ff826021865edef8c92b191c2e24bc34ce436",
-      "rows": 100,
-      "columns": [
-        "index",
-        "reviewbody",
-        "star",
-        "location_traffic",
-        "location_distance_from_business_district",
-        "location_easy_to_find",
-        "service_wait_time",
-        "service_waiters_attitude",
-        "service_parking_convenience",
-        "service_serving_speed",
-        "price_level",
-        "price_cost_effective",
-        "price_discount",
-        "environment_decoration",
-        "environment_noise",
-        "environment_space",
-        "environment_cleaness",
-        "dish_portion",
-        "dish_taste",
-        "dish_look",
-        "dish_recommendation"
-      ]
-    },
-    {
-      "path": "ASAP/data/train.csv",
-      "bytes": 36475033,
-      "sha256": "30912f5e2a866a4c0f654ec3461215f008b8b90d208f2c410f03369f43655de9",
-      "rows": 36850,
-      "columns": [
-        "id",
-        "review",
-        "star",
-        "Location#Transportation",
-        "Location#Downtown",
-        "Location#Easy_to_find",
-        "Service#Queue",
-        "Service#Hospitality",
-        "Service#Parking",
-        "Service#Timely",
-        "Price#Level",
-        "Price#Cost_effective",
-        "Price#Discount",
-        "Ambience#Decoration",
-        "Ambience#Noise",
-        "Ambience#Space",
-        "Ambience#Sanitary",
-        "Food#Portion",
-        "Food#Taste",
-        "Food#Appearance",
-        "Food#Recommend"
-      ]
-    },
-    {
-      "path": "ASAP/data/train_sample.csv",
-      "bytes": 104205,
-      "sha256": "02a59398e87e44e09c2c0405fda3b67eff7b175e452d01eee90e04b159267f71",
-      "rows": 100,
-      "columns": [
-        "index",
-        "reviewbody",
-        "star",
-        "location_traffic",
-        "location_distance_from_business_district",
-        "location_easy_to_find",
-        "service_wait_time",
-        "service_waiters_attitude",
-        "service_parking_convenience",
-        "service_serving_speed",
-        "price_level",
-        "price_cost_effective",
-        "price_discount",
-        "environment_decoration",
-        "environment_noise",
-        "environment_space",
-        "environment_cleaness",
-        "dish_portion",
-        "dish_taste",
-        "dish_look",
-        "dish_recommendation"
-      ]
+      "dataset": "mams",
+      "path": "MAMS/data/MAMS-ACSA/raw/test.xml",
+      "source_url": "https://raw.githubusercontent.com/siat-nlp/MAMS-for-ABSA/cddcdb0f423b3fdb2c76b70744737abed3a00d17/data/MAMS-ACSA/raw/test.xml",
+      "source_revision": "cddcdb0f423b3fdb2c76b70744737abed3a00d17",
+      "source_sha256": "cc0dc3c5b711653daa9ac886c6517d3ebf8752954b73715692d7765fec4a57f5",
+      "source_format": "native",
+      "sha256": "cc0dc3c5b711653daa9ac886c6517d3ebf8752954b73715692d7765fec4a57f5",
+      "statistics": {
+        "sentences": 400,
+        "aspect_terms": 0,
+        "aspect_categories": 901,
+        "label_counts": {
+          "neutral": 393,
+          "negative": 263,
+          "positive": 245
+        }
+      },
+      "conversion_audit": {}
     }
   ]
 }

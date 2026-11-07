@@ -87,9 +87,11 @@ class DownloadTests(unittest.TestCase):
 
     def test_pinned_resources_cover_expected_xml_paths(self):
         items = resources("all")
-        self.assertEqual(len(items), 10)
-        self.assertEqual(len({path for path, _, _ in items}), 10)
-        self.assertEqual(len(resources("semeval")), 4)
+        self.assertEqual(len(items), 12)
+        self.assertEqual(len({path for path, _, _ in items}), 12)
+        self.assertEqual(len(resources("semeval")), 6)
+        self.assertEqual(len(resources("restaurant")), 2)
+        self.assertTrue(all(path.startswith("Restaurant3/") for path, _, _ in resources("restaurant")))
         self.assertEqual(len(resources("mams")), 6)
         self.assertTrue(all(revision in url for _, url, revision in items))
 

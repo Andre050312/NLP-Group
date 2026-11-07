@@ -1,0 +1,189 @@
+{
+  "deleted_paths": [
+    "Database/ASAP",
+    "Database/SemEval2014",
+    "resources/absa_xml_bundle.zip"
+  ],
+  "retained_three_class_files": [
+    {
+      "path": "Restaurant3/train.xml",
+      "sentences": 3041,
+      "aspect_terms": 3602,
+      "aspect_categories": 3518,
+      "label_counts": {
+        "negative": 805,
+        "positive": 2164,
+        "neutral": 633
+      },
+      "bytes": 1222699,
+      "sha256": "4fd43d7926ac533a11052f6e0ff89d781713d292ffd466bf0d3d575e4e0af9ee",
+      "integrity": "verified",
+      "line_endings_normalized_for_check": false
+    },
+    {
+      "path": "Restaurant3/test.xml",
+      "sentences": 800,
+      "aspect_terms": 1120,
+      "aspect_categories": 973,
+      "label_counts": {
+        "positive": 728,
+        "neutral": 196,
+        "negative": 196
+      },
+      "bytes": 354261,
+      "sha256": "ac1926b75e7d2c1ed161c4c94eedd8998401b68c7b181c27c852ef0bb9604120",
+      "integrity": "verified",
+      "line_endings_normalized_for_check": false
+    },
+    {
+      "path": "Restaurant2015/train.xml",
+      "sentences": 1275,
+      "aspect_terms": 1188,
+      "aspect_categories": 0,
+      "label_counts": {
+        "negative": 252,
+        "positive": 902,
+        "neutral": 34
+      },
+      "bytes": 288358,
+      "sha256": "7a3bc8e647adf54629cb1f367d2502adb03b9db7ac6634b6f4cb5193c0b71a44",
+      "integrity": "verified",
+      "line_endings_normalized_for_check": false
+    },
+    {
+      "path": "Restaurant2015/test.xml",
+      "sentences": 663,
+      "aspect_terms": 525,
+      "aspect_categories": 0,
+      "label_counts": {
+        "positive": 319,
+        "negative": 179,
+        "neutral": 27
+      },
+      "bytes": 144425,
+      "sha256": "34d21ffc6522f8424cffc5436b2b71cce988eb47fa5face48ff43a9f7375fb3a",
+      "integrity": "verified",
+      "line_endings_normalized_for_check": false
+    },
+    {
+      "path": "Restaurant2016/train.xml",
+      "sentences": 1937,
+      "aspect_terms": 1714,
+      "aspect_categories": 0,
+      "label_counts": {
+        "negative": 433,
+        "positive": 1220,
+        "neutral": 61
+      },
+      "bytes": 432620,
+      "sha256": "f14686f40083a47c692e4bb26c158e2eeb2d778b41c214e031b334513affcab0",
+      "integrity": "verified",
+      "line_endings_normalized_for_check": false
+    },
+    {
+      "path": "Restaurant2016/test.xml",
+      "sentences": 642,
+      "aspect_terms": 601,
+      "aspect_categories": 0,
+      "label_counts": {
+        "positive": 460,
+        "neutral": 28,
+        "negative": 113
+      },
+      "bytes": 161423,
+      "sha256": "30f527166dd0e09772ed801b9245fead7353589a5ecafbd8cfa293d45eb53b17",
+      "integrity": "verified",
+      "line_endings_normalized_for_check": false
+    },
+    {
+      "path": "MAMS/data/MAMS-ATSA/raw/train.xml",
+      "sentences": 4297,
+      "aspect_terms": 11186,
+      "aspect_categories": 0,
+      "label_counts": {
+        "negative": 2764,
+        "positive": 3380,
+        "neutral": 5042
+      },
+      "bytes": 1641623,
+      "sha256": "26ba39142b28169ebc80408294f4e27493bd1e127c6aa2e85ab4bc750bf8017a",
+      "integrity": "verified",
+      "line_endings_normalized_for_check": false
+    },
+    {
+      "path": "MAMS/data/MAMS-ATSA/raw/val.xml",
+      "sentences": 500,
+      "aspect_terms": 1332,
+      "aspect_categories": 0,
+      "label_counts": {
+        "neutral": 604,
+        "positive": 403,
+        "negative": 325
+      },
+      "bytes": 195718,
+      "sha256": "5b7d225e2f9482a3814f15aed04ff8323105171a47d22d9899d871c4e0ba86ca",
+      "integrity": "verified",
+      "line_endings_normalized_for_check": false
+    },
+    {
+      "path": "MAMS/data/MAMS-ATSA/raw/test.xml",
+      "sentences": 500,
+      "aspect_terms": 1336,
+      "aspect_categories": 0,
+      "label_counts": {
+        "neutral": 607,
+        "positive": 400,
+        "negative": 329
+      },
+      "bytes": 196660,
+      "sha256": "f1a5f53b785335e9c57a1f82b1415026f821040b9e9662a2e467d47a54f20aa9",
+      "integrity": "verified",
+      "line_endings_normalized_for_check": false
+    },
+    {
+      "path": "MAMS/data/MAMS-ACSA/raw/train.xml",
+      "sentences": 3149,
+      "aspect_terms": 0,
+      "aspect_categories": 7090,
+      "label_counts": {
+        "positive": 1929,
+        "neutral": 3077,
+        "negative": 2084
+      },
+      "bytes": 1081235,
+      "sha256": "24c6a1a9f769ec5a9a1fc9a63077001339cec65317e3e72cf053d8055ec5f1ac",
+      "integrity": "verified",
+      "line_endings_normalized_for_check": false
+    },
+    {
+      "path": "MAMS/data/MAMS-ACSA/raw/val.xml",
+      "sentences": 400,
+      "aspect_terms": 0,
+      "aspect_categories": 888,
+      "label_counts": {
+        "neutral": 388,
+        "positive": 241,
+        "negative": 259
+      },
+      "bytes": 135397,
+      "sha256": "d4536b0ced8e77f53f88ff1835fcf561e0de02e41a509982f76eb9b8a375b2ed",
+      "integrity": "verified",
+      "line_endings_normalized_for_check": false
+    },
+    {
+      "path": "MAMS/data/MAMS-ACSA/raw/test.xml",
+      "sentences": 400,
+      "aspect_terms": 0,
+      "aspect_categories": 901,
+      "label_counts": {
+        "neutral": 393,
+        "negative": 263,
+        "positive": 245
+      },
+      "bytes": 136615,
+      "sha256": "cc0dc3c5b711653daa9ac886c6517d3ebf8752954b73715692d7765fec4a57f5",
+      "integrity": "verified",
+      "line_endings_normalized_for_check": false
+    }
+  ]
+}

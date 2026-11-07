@@ -1,5 +1,5 @@
-# One requirements file for both bert_baseline and absa_enhanced.
-# Windows: CUDA 12.8 build for the user's RTX 5060 / NVIDIA driver.
+# Shared dependencies for the baseline, joint model and sentence-pair model.
+# Windows CUDA 12.8 build; GPU acceleration requires a compatible NVIDIA driver.
 --extra-index-url https://download.pytorch.org/whl/cu128
 torch==2.10.0+cu128; sys_platform == "win32"
 torch>=2.6,<3; sys_platform != "win32"

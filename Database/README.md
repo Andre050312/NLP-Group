@@ -11,9 +11,18 @@ python scripts/download_datasets.py
 python scripts/download_datasets.py --check
 ```
 
-默认准备 SemEval 的 4 个训练/测试 XML 和 MAMS ATSA/ACSA 的 6 个 XML。支持 `--dataset semeval`、`--dataset mams`；脚本不需要 Git、不下载 ASAP CSV 或作者模型代码。已有有效 XML 跳过；缺失或损坏时下载并校验，替换损坏文件前保留哈希命名备份。`--check` 只检查，不联网、不写文件。
+默认准备 SemEval 的 4 个训练/测试 XML 和 MAMS ATSA/ACSA 的 6 个 XML。支持 `--dataset semeval`、`--dataset mams`；脚本不需要 Git、不下载 ASAP CSV 或作者模型代码。现有文件须匹配内置哈希；缺失或损坏时先尝试本地离线包/嵌套目录，再联网并回退备用地址。替换旧文件前保留哈希命名备份。`--check` 只检查，不联网、不写文件。
 
-当前下载记录、固定来源版本、SHA-256、样本数和失败项目见脚本生成的 `download_manifest.json`。旧的 `manifest.json` 是初次仓库下载的快照，不会被覆盖。文件存在且可解析不等同于远程版本已核验。
+离线包位于项目的 `resources/absa_xml_bundle.zip`，同步项目时应一起复制。无网络时执行：
+
+```powershell
+python scripts/download_datasets.py --offline
+python scripts/download_datasets.py --check
+```
+
+其他来源目录/ZIP 可用 `--import-from` 指定。即使来源多套目录或含多个同名 train.xml，也会根据固定内容哈希定位，不改动标签或分割。
+
+当前下载记录、固定来源版本、实际来源、SHA-256、样本数和失败项目见脚本生成的 `download_manifest.json`。旧的 `manifest.json` 是初次仓库下载的快照，不会被覆盖。XML 可解析之外还会核对固定内容哈希，允许仅 CRLF/LF 换行差异；不修改文件字节。
 
 原始标注可能在子词内部结束，例如 `dress code` 中标注 `dress cod`。下载时不修改这些标注；模型用覆盖子词完成情感分类，屏蔽不可精确表示的 BIO 监督，并保留原始跨度进行评价。
 

@@ -49,6 +49,8 @@ def move_batch(batch, device):
 
 
 def evaluate(model, tokenizer, dataset, device, batch_size=2, precision="no", compute_metrics=True):
+    if getattr(model, "model_kind", "joint") == "pair":
+        return evaluate_pairs(model, tokenizer, dataset, device, batch_size, precision, compute_metrics)
     model.eval()
     gold_scores, predicted_scores = defaultdict(list), defaultdict(list)
     loader = DataLoader(dataset, batch_size=batch_size, collate_fn=Collator(tokenizer), num_workers=0)
@@ -126,12 +128,51 @@ def evaluate(model, tokenizer, dataset, device, batch_size=2, precision="no", co
     return metrics, gold_rows, sentence_rows
 
 
+def evaluate_pairs(model, tokenizer, dataset, device, batch_size=2, precision="no", compute_metrics=True):
+    """Only gold-aspect classification is measurable without an extraction model."""
+    model.eval()
+    loader = DataLoader(dataset, batch_size=batch_size, collate_fn=Collator(tokenizer), num_workers=0)
+    gold_rows, gold, predicted = [], [], []
+    by_document = defaultdict(list)
+    with torch.inference_mode():
+        for batch in loader:
+            inputs, query_mask, spans, labels, _ = move_batch(batch, device)
+            with autocast_context(device, precision):
+                _, logits = model(inputs, query_mask, spans)
+            probabilities = logits.float().softmax(-1).cpu().tolist()
+            for row, values, label in zip(batch["rows"], probabilities, labels.cpu().tolist()):
+                document = dataset.documents[row["doc_index"]]
+                _, _, _, start, end = row["targets"][0]
+                prediction = max(range(3), key=values.__getitem__)
+                gold.append(label)
+                predicted.append(prediction)
+                result = {"sentence_id": document.uid, "text": document.text,
+                          "aspect": document.text[start:end], "start": start, "end": end,
+                          "label": SENTIMENTS[label], "prediction": SENTIMENTS[prediction],
+                          "probabilities": dict(zip(SENTIMENTS, values))}
+                gold_rows.append(result)
+                by_document[row["doc_index"]].append({"aspect": result["aspect"], "start": start, "end": end,
+                                                      "sentiment": result["prediction"], "confidence": values[prediction],
+                                                      "aspect_source": "provided"})
+    metrics = {}
+    if compute_metrics:
+        metrics = {"mode": "pair", "gold_aspect_sentiment": classification_metrics(gold, predicted, SENTIMENTS),
+                   "aspect_extraction": None, "end_to_end": None,
+                   "sentences": len(dataset.documents), "encoded_pairs": len(dataset),
+                   "excluded_conflict_targets": sum(a.label == "conflict" for d in dataset.documents for a in d.aspects)}
+    sentence_rows = [{"sentence_id": d.uid, "text": d.text, "mode": "pair_given_aspects",
+                      "gold": [a.__dict__ for a in d.aspects], "predictions": by_document[i]}
+                     for i, d in enumerate(dataset.documents)]
+    return metrics, gold_rows, sentence_rows
+
+
 def save_results(directory, metrics, gold_rows, sentence_rows, prefix="test"):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     (directory / f"{prefix}_metrics.json").write_text(json.dumps(metrics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    sentence_suffix = "provided_aspects" if metrics.get("mode") == "pair" else "end_to_end"
     for filename, rows in ((f"{prefix}_gold_predictions.jsonl", gold_rows),
-                           (f"{prefix}_end_to_end.jsonl", sentence_rows)):
+                           (f"{prefix}_{sentence_suffix}.jsonl", sentence_rows)):
         with (directory / filename).open("w", encoding="utf-8") as stream:
             for row in rows:
                 stream.write(json.dumps(row, ensure_ascii=False) + "\n")

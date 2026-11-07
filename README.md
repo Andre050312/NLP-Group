@@ -5,7 +5,8 @@
 | 入口 | 用途 |
 |---|---|
 | `python -m bert_baseline` | 原 BERT-base 句对分类基线，需提供方面词 |
-| `python -m absa_enhanced` | DeBERTa-v3-base 增强版，自动抽取方面并判断情感，也支持给定方面分类 |
+| `python -m absa_enhanced train --mode joint` | DeBERTa 联合模型：方面抽取与情感分类 |
+| `python -m absa_enhanced train --mode pair` | DeBERTa 方面条件句对分类：以 Accuracy 为主要目标 |
 
 以下步骤使用 Windows PowerShell，从创建独立 Python 环境开始。命令中的项目路径为示例，请替换为本机实际路径。
 
@@ -84,7 +85,30 @@ Database/
 python scripts/download_datasets.py
 ```
 
-默认下载 SemEval 餐厅/笔记本的训练与测试 XML（4 个），以及 MAMS-ATSA、MAMS-ACSA 的 train/val/test（6 个），共 10 个 XML。现有目录可以保留；有效文件跳过，缺失/损坏文件重新下载，损坏旧文件先备份为 `.invalid-文件哈希`。下载先写临时文件，XML 解析和字符跨度检查成功后再放入正式位置。脚本不下载 ASAP CSV 或作者模型代码。
+默认准备 SemEval 餐厅/笔记本的训练与测试 XML（4 个），以及 MAMS-ATSA、MAMS-ACSA 的 train/val/test（6 个），共 10 个 XML。**同步项目时同时复制 `resources/absa_xml_bundle.zip`**，这是项目已有原始 XML 的离线包。脚本按以下顺序寻找每个文件：
+
+1. 校验目标位置已存在的文件。
+2. 从 `--import-from` 指定的本地目录/ZIP、项目离线包或错放在嵌套目录中的 XML 恢复。
+3. 本地没有可用文件时才联网，失败后自动尝试备用地址。
+
+现有目录可以保留。损坏或版本不匹配的旧文件替换前备份为 `.invalid-文件哈希`，新文件先写临时文件，XML 解析、字符位置和固定 SHA-256 校验成功后再原子替换。Git 导致的 CRLF/LF 换行差异可接受，不会改写实际文件；其他内容差异将报错。脚本不下载 ASAP CSV 或执行来源仓库代码。
+
+### 网络下载失败时使用离线包
+
+确认 `resources/absa_xml_bundle.zip` 已放入项目，执行：
+
+```powershell
+python scripts/download_datasets.py --offline
+python scripts/download_datasets.py --check
+```
+
+`--offline` 不进行任何网络请求；离线包缺失时会明确提示，不静默退回联网。也可以从另一台机器复制的原始数据目录或 ZIP 导入，路径替换为实际位置：
+
+```powershell
+python scripts/download_datasets.py --offline --import-from "D:\datasets\absa_xml_bundle.zip"
+```
+
+导入会按文件内容哈希辨别多个同名 `train.xml`，并恢复标准目录层级，不要求来源目录恰好与目标目录一致。
 
 只下载 SemEval：
 
@@ -104,7 +128,9 @@ python scripts/download_datasets.py --dataset mams
 python scripts/download_datasets.py --check
 ```
 
-下载来源固定到已记录的仓库版本，下载报告、SHA-256 和样本数保存在 `Database/download_manifest.json`。已存在的有效文件会记录哈希，但不假定它一定来自该固定版本。来源及使用说明见 `Database/README.md`。
+下载来源固定到已记录的仓库版本，所有文件须通过内置 SHA-256 校验。下载报告、实际来源、文件哈希和样本数保存在 `Database/download_manifest.json`，`--check` 只检查、不联网也不写文件。来源及使用说明见 `Database/README.md`。
+
+联网超时可调整为 `--timeout 60 --retries 3`；SemEval 支持用 `--hf-endpoint` 指定可访问的 HTTPS Hugging Face 镜像，镜像内容同样必须通过哈希检查。无需关闭 SSL 校验，也不需要管理员权限。某一个文件失败不会阻止检查其他文件，最终会列出失败项目并返回非零退出码。
 
 下载脚本保留原始 XML 的标签和字符位置，不会把 `dress cod` 自动改成 `dress code`。这类真实子串标注可通过 XML 校验，其子词边界兼容由模型读取代码处理；因此遇到旧版对齐报错时应更新代码，而不是反复下载或手工改测试集。
 
@@ -134,6 +160,38 @@ python -m unittest discover -s tests -v
 新增测试使用本地小词表和随机初始化的微型 BERT，不下载预训练模型。覆盖重叠窗口、重复方面、conflict、联合梯度、无方面句子、BIO 解码、联合指标、保存加载，以及命令行训练/评价/两种预测。测试通过不等于真实 DeBERTa 训练效果已经验证。
 
 ## 5. Restaurant 主实验
+
+### 方面条件句对分类（新增）
+
+每个训练样本输入“评论上下文 + 当前方面”两段序列，使方面信息参与编码器的每一层。分类头融合 CLS、评论中方面的池化向量和第二段方面向量。长评论按目标位置裁剪，保证当前方面保留；`--max-length` 包含两段和特殊 token，`--stride` 在 pair 模式不使用。保留原始字符位置，兼容子词内部结束的标注。
+
+```text
+评论上下文 + 方面词 → DeBERTa 联合编码 → CLS + 评论方面表示 + 查询方面表示 → MLP → 情感
+```
+
+执行下面的命令，先保持与已有不加权实验一致的损失配置，测试输入方式的变化：
+
+```powershell
+python -m absa_enhanced train --mode pair --dataset restaurant --encoder microsoft/deberta-v3-base --output runs/deberta_pair_split42_seed42 --epochs 6 --batch-size 2 --grad-accum 4 --max-length 192 --seed 42 --split-seed 42 --class-weighting none --selection-metric gold_accuracy --device auto
+```
+
+pair 模式没有 BIO 抽取头，抽取损失有效权重固定为 0（记录在 `effective_extraction_weight`），只训练有三分类标签的方面。`--local-radius`、`--no-fusion` 不影响 pair 架构。结果里的 `gold_aspect_sentiment` 是实际分类指标；`aspect_extraction`、`end_to_end` 为 `null`，不能把给定方面的分类成绩当成自动抽取系统成绩。
+
+同划分、同训练种子和同选择规则的 joint 对照：
+
+```powershell
+python -m absa_enhanced train --mode joint --dataset restaurant --output runs/deberta_joint_control_split42_seed42 --epochs 6 --batch-size 2 --grad-accum 4 --max-length 192 --stride 64 --seed 42 --split-seed 42 --class-weighting none --selection-metric gold_accuracy --device auto
+```
+
+joint 模式每个窗口可以同时训练多个方面并使用抽取背景句，pair 模式逐方面编码，训练样本数和优化器更新数因此不同。同轮数不是严格等算力比较，应同时报告训练时间与样本组织差异。
+
+### 固定划分与训练随机性
+
+`--split-seed` 只控制从训练来源划出的验证文本，`--seed` 控制模型初始化、dropout 和数据顺序。多种子实验保留 `--split-seed 42`，只改变 `--seed 42/43/44`，让验证集保持一致。MAMS 已有验证集，不受 split seed 改变。
+
+为兼容历史实验，省略 `--split-seed` 时仍沿用 `--seed` 划分；`run_config.json` 的 `resolved_split_seed` 记录实际值。以前未指定 split seed 的 seed 43/44 实验，其验证集与新固定 split 42 实验不同，不能直接视为同一划分的随机初始化对照。PowerShell 启动脚本新增 `-Mode` 和 `-SplitSeed`，默认固定 split 42。
+
+### 原联合模型训练
 
 可选：先用独立目录跑 1 epoch：
 
@@ -179,6 +237,32 @@ Get-Content .\runs\deberta_joint_restaurant_seed42\test_metrics.json
 `test_gold_predictions.jsonl` 保存给定正确方面的逐条情感预测，可检查中性被判为正面的案例。`test_end_to_end.jsonl` 保存每句的自动抽取结果。
 
 ## 7. 推理
+
+### 句对模型
+
+指定方面进行分类：
+
+```powershell
+python -m absa_enhanced predict --checkpoint runs/deberta_pair_split42_seed42/best --text "The food was excellent, but the service was slow." --aspect service --device auto
+```
+
+可用已训练的联合模型作为第一阶段抽取器，再由句对模型重新判断各方面情感。将 `runs/joint_experiment/best` 换成实际联合模型路径：
+
+```powershell
+python -m absa_enhanced predict --checkpoint runs/deberta_pair_split42_seed42/best --extractor-checkpoint runs/joint_experiment/best --text "The food was excellent, but the service was slow." --device auto
+```
+
+推理先运行抽取器，再释放其模型，加载句对分类器，避免两个编码器同时驻留 GPU。没有抽到方面时返回空列表。该两阶段预测不自动生成全测试集端到端指标。
+
+评估给定正确方面的分类：
+
+```powershell
+python -m absa_enhanced evaluate --checkpoint runs/deberta_pair_split42_seed42/best --test Database/SemEval2014/ABSA_Gold_TestData/Restaurants_Test_Gold.xml --output runs/deberta_pair_evaluation --device auto
+```
+
+pair 模式逐句的预测文件名为 `test_provided_aspects.jsonl`，避免与自动端到端结果混淆。旧 joint checkpoint 不需要转换，加载器自动识别两种模型格式。
+
+### 联合模型
 
 自动抽取方面并预测：
 
@@ -299,6 +383,7 @@ python -m bert_baseline train --model google-bert/bert-base-uncased --train "Dat
 
 - 模型：https://huggingface.co/microsoft/deberta-v3-base
 - DeBERTa-v3 论文：https://arxiv.org/abs/2111.09543
+- 方面辅助句与句对分类：https://aclanthology.org/N19-1035/
 - 模型 API：https://huggingface.co/docs/transformers/model_doc/deberta-v2
 - SemEval：https://alt.qcri.org/semeval2014/task4/
 - MAMS：https://github.com/siat-nlp/MAMS-for-ABSA

@@ -16,6 +16,7 @@ from tqdm.auto import tqdm
 from .data import Aspect, Collator, Document, SENTIMENTS, WindowDataset, prepare_splits, read_documents
 from .evaluation import autocast_context, evaluate, move_batch, save_results
 from .model import JointABSA, joint_loss
+from .pair import PairABSA, PairDataset
 from .selection import checkpoint_directory, selection_key
 
 
@@ -74,6 +75,8 @@ def validate_training_args(args):
         raise ValueError("extraction-weight and local-radius must be nonnegative")
     if not 0 <= args.dropout < 1 or args.weight_decay < 0:
         raise ValueError("dropout must be in [0, 1), and weight-decay must be nonnegative")
+    if args.mode == "pair" and args.selection_metric == "end_to_end_f1":
+        raise ValueError("Pair mode has no extraction head; select gold_accuracy or gold_macro_f1")
 
 
 def train(args):
@@ -88,16 +91,22 @@ def train(args):
     device = resolve_device(args.device)
     precision = resolve_precision(args.precision, device)
     train_path, validation_path, test_path = dataset_paths(args)
+    split_seed = args.seed if args.split_seed is None else args.split_seed
     train_docs, val_docs, test_docs, audit = prepare_splits(train_path, validation_path, test_path,
-                                                        args.validation_fraction, args.seed)
+                                                        args.validation_fraction, split_seed)
     tokenizer = AutoTokenizer.from_pretrained(args.encoder, use_fast=True)
     tokenizer.padding_side = "right"
-    train_data = WindowDataset(train_docs, tokenizer, args.max_length, args.stride)
-    val_data = WindowDataset(val_docs, tokenizer, args.max_length, args.stride)
+    dataset_class = PairDataset if args.mode == "pair" else WindowDataset
+    train_data = dataset_class(train_docs, tokenizer, args.max_length, args.stride)
+    val_data = dataset_class(val_docs, tokenizer, args.max_length, args.stride)
     # Validate every test annotation before spending time training. No scores are used.
-    test_data = WindowDataset(test_docs, tokenizer, args.max_length, args.stride) if test_docs else None
-    model = JointABSA.from_pretrained(args.encoder, local_radius=args.local_radius,
-                                     fusion=not args.no_fusion, dropout=args.dropout)
+    test_data = dataset_class(test_docs, tokenizer, args.max_length, args.stride) if test_docs else None
+    if args.mode == "pair":
+        model = PairABSA.from_pretrained(args.encoder, dropout=args.dropout)
+    else:
+        model = JointABSA.from_pretrained(args.encoder, local_radius=args.local_radius,
+                                         fusion=not args.no_fusion, dropout=args.dropout)
+    extraction_weight = 0.0 if args.mode == "pair" else args.extraction_weight
     if args.max_length > getattr(model.encoder.config, "max_position_embeddings", args.max_length):
         raise ValueError("max-length exceeds this encoder's supported position range")
     if not args.no_gradient_checkpointing:
@@ -129,6 +138,7 @@ def train(args):
     output.mkdir(parents=True, exist_ok=True)
     metadata = {"max_length": args.max_length, "stride": args.stride, "encoder": args.encoder}
     config = {**vars(args), "resolved_precision": precision, "resolved_device": str(device),
+              "resolved_split_seed": split_seed, "effective_extraction_weight": extraction_weight,
               "train_path": str(train_path), "validation_path": str(validation_path), "test_path": str(test_path),
               "audit": audit, "train_sentences": len(train_docs), "validation_sentences": len(val_docs),
               "token_alignment": {"train": train_data.alignment_stats,
@@ -166,7 +176,7 @@ def train(args):
                 bio_logits, sentiment_logits = model(inputs, valid, spans)
                 loss, sentiment_loss, extraction_loss = joint_loss(
                     bio_logits, sentiment_logits, bio, labels, class_weights,
-                    args.extraction_weight, args.smoothing)
+                    extraction_weight, args.smoothing)
                 # Correctly scale the last, potentially shorter accumulation group.
                 group_size = min(args.grad_accum, len(loader) - (step // args.grad_accum) * args.grad_accum)
                 scaled_loss = loss / group_size
@@ -239,6 +249,34 @@ def train(args):
 def predict_or_evaluate(args):
     device = resolve_device(args.device)
     precision = resolve_precision(args.precision, device)
+    # Detect pair checkpoints before allocating the classifier so two full encoders
+    # need not reside on an 8GB GPU simultaneously for two-stage prediction.
+    settings_path = Path(args.checkpoint) / "settings.json"
+    saved_kind = json.loads(settings_path.read_text(encoding="utf-8")).get("model_kind", "joint")
+    extracted_aspects = None
+    if args.command == "predict" and saved_kind == "pair" and not args.aspect:
+        if args.aspect_start is not None:
+            raise ValueError("--aspect-start requires --aspect")
+        if not args.extractor_checkpoint:
+            raise ValueError("Pair mode needs --aspect, or --extractor-checkpoint pointing to a trained joint model")
+        if not args.text.strip():
+            raise ValueError("text must not be empty")
+        extractor, extraction_tokenizer, extraction_settings = JointABSA.load_checkpoint(args.extractor_checkpoint)
+        if extractor.model_kind != "joint":
+            raise ValueError("extractor-checkpoint must be a trained joint model, not a pair classifier")
+        extractor.to(device)
+        source_data = WindowDataset([Document("user", args.text, ())], extraction_tokenizer,
+                                    extraction_settings["max_length"], extraction_settings["stride"])
+        _, _, extracted_rows = evaluate(extractor, extraction_tokenizer, source_data, device,
+                                        args.batch_size, precision, compute_metrics=False)
+        extracted_aspects = tuple(Aspect(p["start"], p["end"], "neutral") for p in extracted_rows[0]["predictions"])
+        del extractor, source_data, extraction_tokenizer
+        gc.collect()
+        if device.type == "cuda":
+            torch.cuda.empty_cache()
+        if not extracted_aspects:
+            print(json.dumps({"text": args.text, "predictions": [], "mode": "two_stage"}, ensure_ascii=False, indent=2))
+            return
     model, tokenizer, settings = JointABSA.load_checkpoint(args.checkpoint)
     tokenizer.padding_side = "right"
     model.to(device)
@@ -248,7 +286,7 @@ def predict_or_evaluate(args):
     else:
         if not args.text.strip():
             raise ValueError("text must not be empty")
-        aspects = ()
+        aspects = extracted_aspects or ()
         if args.aspect:
             if args.aspect_start is None:
                 if args.text.count(args.aspect) != 1:
@@ -262,7 +300,8 @@ def predict_or_evaluate(args):
         elif args.aspect_start is not None:
             raise ValueError("--aspect-start requires --aspect")
         documents = [Document("user", args.text, aspects)]
-    data = WindowDataset(documents, tokenizer, max_length, stride)
+    dataset_class = PairDataset if model.model_kind == "pair" else WindowDataset
+    data = dataset_class(documents, tokenizer, max_length, stride)
     metrics, gold_rows, sentence_rows = evaluate(model, tokenizer, data, device, args.batch_size,
                                                 precision, compute_metrics=args.command == "evaluate")
     if args.command == "evaluate":
@@ -274,7 +313,11 @@ def predict_or_evaluate(args):
         result.pop("label")
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        print(json.dumps({"text": args.text, "predictions": sentence_rows[0]["predictions"]}, ensure_ascii=False, indent=2))
+        predictions = sentence_rows[0]["predictions"]
+        if extracted_aspects is not None:
+            for prediction in predictions:
+                prediction["aspect_source"] = "predicted_by_joint_model"
+        print(json.dumps({"text": args.text, "predictions": predictions}, ensure_ascii=False, indent=2))
 
 
 def main():
@@ -288,6 +331,8 @@ def main():
     tr.add_argument("--test")
     tr.add_argument("--output", required=True)
     tr.add_argument("--encoder", default="microsoft/deberta-v3-base")
+    tr.add_argument("--mode", choices=["joint", "pair"], default="joint",
+                    help="joint: extraction + sentiment; pair: aspect-conditioned sentiment only")
     tr.add_argument("--epochs", type=int, default=6)
     tr.add_argument("--grad-accum", type=int, default=4)
     tr.add_argument("--learning-rate", type=float, default=1e-5)
@@ -306,6 +351,8 @@ def main():
     tr.add_argument("--selection-metric", choices=["gold_accuracy", "gold_macro_f1", "end_to_end_f1"], default="gold_accuracy")
     tr.add_argument("--patience", type=int, default=2)
     tr.add_argument("--seed", type=int, default=42)
+    tr.add_argument("--split-seed", type=int, default=None,
+                    help="Fixed train/validation split seed; omitted means use --seed for backward compatibility")
     tr.add_argument("--validation-fraction", type=float, default=0.15)
     ev = sub.add_parser("evaluate")
     ev.add_argument("--checkpoint", required=True)
@@ -316,6 +363,7 @@ def main():
     pr.add_argument("--text", required=True)
     pr.add_argument("--aspect")
     pr.add_argument("--aspect-start", type=int)
+    pr.add_argument("--extractor-checkpoint", help="Optional trained joint model for pair-mode automatic extraction")
     for command in (tr, ev, pr):
         command.add_argument("--batch-size", type=int, default=2)
         command.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")

@@ -59,7 +59,7 @@ def evaluate(model, tokenizer, dataset, device, batch_size=2, precision="no", co
             inputs, valid, gold_spans, _, _ = move_batch(batch, device)
             with autocast_context(device, precision):
                 hidden, bio_logits = model.encode(inputs)
-                gold_probabilities = model.classify(hidden, valid, gold_spans).float().softmax(-1).cpu().tolist()
+                gold_probabilities = model.probabilities(model.classify(hidden, valid, gold_spans)).cpu().tolist()
                 candidate_spans, candidate_keys = [], []
                 tags = bio_logits.argmax(-1).cpu().tolist()
                 for b, row in enumerate(batch["rows"]):
@@ -76,7 +76,7 @@ def evaluate(model, tokenizer, dataset, device, batch_size=2, precision="no", co
                         candidate_spans.append((b, start, end))
                         candidate_keys.append((row["doc_index"], char_start, char_end))
                 predicted_tensor = torch.tensor(candidate_spans, dtype=torch.long, device=device).reshape(-1, 3)
-                candidate_probabilities = model.classify(hidden, valid, predicted_tensor).float().softmax(-1).cpu().tolist()
+                candidate_probabilities = model.probabilities(model.classify(hidden, valid, predicted_tensor)).cpu().tolist()
             gold_keys = [(row["doc_index"], start, end) for row in batch["rows"]
                          for _, _, _, start, end in row["targets"]]
             for key, probabilities in zip(gold_keys, gold_probabilities):
@@ -139,7 +139,7 @@ def evaluate_pairs(model, tokenizer, dataset, device, batch_size=2, precision="n
             inputs, query_mask, spans, labels, _ = move_batch(batch, device)
             with autocast_context(device, precision):
                 _, logits = model(inputs, query_mask, spans)
-            probabilities = logits.float().softmax(-1).cpu().tolist()
+            probabilities = model.probabilities(logits).cpu().tolist()
             for row, values, label in zip(batch["rows"], probabilities, labels.cpu().tolist()):
                 document = dataset.documents[row["doc_index"]]
                 _, _, _, start, end = row["targets"][0]

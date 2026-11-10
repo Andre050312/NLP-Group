@@ -147,7 +147,69 @@ python -m absa_enhanced train --mode pair --dataset mams --output runs/pair_mams
 
 联合损失为情感交叉熵 + `--extraction-weight` × BIO 交叉熵，默认 0.5。默认类别加权为 sqrt，默认标签平滑 0.05；上面实验显式指定不加权以便比较。其他消融：`--no-fusion`、`--extraction-weight 0`、`--smoothing 0`。关闭抽取损失时仅比较分类，不把其抽取结果当成有效系统。
 
-## 8. 保存与结果
+## 8. 中性（neutral）增强：情感头、上下文范围与校准
+
+中性只占测试方面 17.5%（196/1120），且语料定义是"对该方面没有表达观点"，这与"有观点但是正面/负面"是两个问题。普通三分类 softmax 把两者压在同一个决策面上，于是中性被系统性低估（recall 低、precision 高）。下面三项分别从**参数化、上下文范围、决策阈值**入手，都可单独关闭，默认值等于原行为。
+
+### 情感头 `--sentiment-head`
+
+| 取值 | 输出 | 训练目标 | 说明 |
+|---|---|---|---|
+| `softmax`（默认） | 3 类 logits | 交叉熵 | 原基线，旧 checkpoint 全部兼容 |
+| `ordinal` | 2 个累积 logits | 两个二分类 BCE | 负 < 中 < 正；中性是极性之间的"带"（CORAL） |
+| `gate` | 1 个"有无观点" + 2 个极性 logits | BCE + 二分类 CE | 先判该方面有没有观点，再判极性；中性 = 无观点 |
+
+概率都归一到和为 1，标签顺序固定 negative/neutral/positive：
+
+- `ordinal`：p₀=σ(l₀)、p₁=σ(l₀+l₁)，P(neg)=1−p₀、P(neutral)=p₀(1−p₁)、P(pos)=p₀p₁。
+- `gate`：P(neutral)=1−σ(l₀)，P(neg)=σ(l₀)·softmax(l₁:)[neg]，P(pos)=σ(l₀)·softmax(l₁:)[pos]。
+
+### 上下文范围 `--context-scope`（仅 pair 模式）
+
+- `sentence`（默认）：围绕方面裁剪整句，行为不变。
+- `clause`：只在方面所在的分句内取上下文，按 `; . ! ? ,` 与 `but/however/although/though/whereas/yet/while/except` 切分；分句少于 2 个词时向相邻分句扩展。
+
+动机是情感作用域通常是分句级的："the food was great, but the service was slow" 里两个方面的极性相反，整句表示对其中一个就是混淆项。
+
+### 中性偏移 `--neutral-offset`（`evaluate` 与 `predict`）
+
+把 P(neutral) 乘以 k 再归一化，等价于给中性 logit 加 log k。k 只能在**验证集**上选，测试集只用于报告最终分数。`scripts/tune_neutral_offset.py` 会读训练时保存的验证与测试预测，扫一遍候选值、按验证指标选 k，再给出测试集在该 k 下的成绩。
+
+```powershell
+python -m absa_enhanced evaluate --checkpoint runs/deberta_pair_split42_seed42/best --test Database/Restaurant3/test.xml --output runs/pair_eval_offset --neutral-offset 2.5 --device auto
+```
+
+### 集成与校准工具
+
+```powershell
+# 平均多个 run 的逐方面概率（只读已有产物，不需要 GPU）
+python scripts/ensemble_runs.py --runs runs/a runs/b runs/c --output runs/ensemble --bootstrap 2000
+# 在验证集上选中性偏移，输出测试集成绩与配对 bootstrap 置信区间
+python scripts/tune_neutral_offset.py --runs runs/a runs/b --metric macro_f1
+```
+
+两个脚本都要求各 run 预测的是同一批 gold 方面（同一 split seed），否则拒绝合并。配对 bootstrap 回答的是"这个差值是不是噪声"，报告里应写区间而不是只写均值。
+
+### 实测（Restaurant3，split-seed 42，seed 42，6 epoch，`--class-weighting none`，按验证 Accuracy 选模）
+
+| 配置 | test Acc | test Macro-F1 | neutral P / R / F1 |
+|---|---|---|---|
+| `softmax`（对照） | 0.8786 | 0.8076 | 0.782 / 0.531 / 0.632 |
+| `gate` | 0.8723 | 0.8018 | 0.709 / 0.536 / 0.610 |
+| `ordinal` | 0.8688 | 0.7923 | 0.697 / 0.515 / 0.592 |
+| `clause` 上下文 | 0.8429 | 0.7438 | 0.727 / 0.408 / 0.523 |
+| 三头概率集成 | 0.8839 | 0.8166 | 0.778 / 0.536 / 0.634 |
+| `softmax` + 中性偏移 2.5 | 0.8804 | 0.8114 | 0.748 / 0.561 / **0.641** |
+
+读数时注意：
+
+- 单种子、1120 个目标、中性仅 196 个，**2 个 F1 点以内基本是噪声**。配对 bootstrap 显示三头集成与中性偏移相对对照的 macro-F1 差值区间都包含 0（偏移的中性 F1 差值 +0.009，区间约 [−0.012, +0.033]），不要写成"显著提升"。
+- **验证集会高估中性**：对照模型验证 neutral F1 0.685 / 测试 0.632，`gate` 验证 0.720 / 测试 0.611。用验证集调中性相关超参数会把乐观偏差带进结论，最终数字必须来自官方测试集，且测试集只评一次。
+- `clause` 上下文把验证与测试的 neutral F1 拉平到 0.52 左右，说明整句上下文既带来泛化也带来混淆：直接切掉分句会丢掉有用信息，不能只当噪声处理。
+- 中性错误的 45% 直接复制了同一句里邻近方面的极性；混句中的中性 recall（0.458）低于纯中性句（0.584）。错例多为"方面只是被提及、极性属于同句别的对象"（如 "A beautiful atmosphere, perfect for drinks and/or appetizers." 里的 `drinks`），这类需要世界知识，属于数据标注约定的难点。
+- 因此中性 F1 0.63–0.65、recall 0.5 左右更接近该数据集的现实水平；把"中性要到 90%"当目标会得到错误结论。比较不同方案时请同时报告 Macro-F1 与每类 P/R，并说明验证集与测试集的差距。
+
+## 9. 保存与结果
 
 默认按验证 Accuracy 选择 `best/`，同分用 Macro-F1 决胜；另存 `best_macro_f1/`。`--selection-metric gold_macro_f1` 可反过来选主模型，joint 还支持 end_to_end_f1。连续 2 轮主选择键未改善则早停，训练结束后只评估主模型。
 
@@ -170,7 +232,7 @@ Get-Content .\runs\deberta_pair_split42_seed42\checkpoint_index.json
 
 这两种模型的样本组织和监督不同，同 epoch 不等同于同计算预算，比较时报告设置和训练成本。额外 checkpoint 增加磁盘占用。
 
-## 9. 预测与独立评估
+## 10. 预测与独立评估
 
 指定方面：
 
@@ -192,7 +254,7 @@ python -m absa_enhanced evaluate --checkpoint runs/deberta_pair_split42_seed42/b
 
 旧 checkpoint 仍可加载。置信度为未经校准的 softmax 概率。
 
-## 10. 分组 K 折交叉验证
+## 11. 分组 K 折交叉验证
 
 交叉验证评估模型对训练样本划分的稳定性，不保证提高单个模型 Accuracy。当前支持 pair 和 joint；默认 5 折，复用相同训练超参数，按所选验证指标保存每折模型。
 
@@ -263,7 +325,7 @@ runs/cv_pair_restaurant_split42/
 
 新增离线测试包含小模型的 3 折命令行流程，全部测试耗时会增加。本文未声称最新交叉验证代码已运行训练或通过测试，应在目标 Windows 环境执行验证。
 
-## 11. BERT 基线
+## 12. BERT 基线
 
 原始混合数据已删除，使用三分类 Restaurant3：
 
@@ -271,7 +333,7 @@ runs/cv_pair_restaurant_split42/
 python -m bert_baseline train --model google-bert/bert-base-uncased --train Database/Restaurant3/train.xml --test Database/Restaurant3/test.xml --output runs/bert_restaurant_threeclass --epochs 3 --batch-size 4 --learning-rate 2e-5 --max-length 128 --seed 42 --device auto
 ```
 
-## 12. 常见问题
+## 13. 常见问题
 
 - 数据缺失：带上全量三分类 ZIP，运行离线恢复和检查，不重新创建笔记本或 ASAP 目录。
 - XML 下载失败：脚本支持备用地址、HTTPS HF 镜像参数和重试；也可 `--import-from` 指定原始三分类目录/ZIP。不要关闭 SSL 校验。

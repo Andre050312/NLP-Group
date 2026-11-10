@@ -73,6 +73,8 @@ def validate_training_args(args):
         raise ValueError("dropout must be in [0, 1), and weight-decay must be nonnegative")
     if args.mode == "pair" and args.selection_metric == "end_to_end_f1":
         raise ValueError("Pair mode has no extraction head; select gold_accuracy or gold_macro_f1")
+    if args.mode != "pair" and args.context_scope != "sentence":
+        raise ValueError("--context-scope only applies to --mode pair")
 
 
 def train(args):
@@ -92,17 +94,25 @@ def train(args):
                                                         args.validation_fraction, split_seed)
     tokenizer = AutoTokenizer.from_pretrained(args.encoder, use_fast=True)
     tokenizer.padding_side = "right"
-    dataset_class = PairDataset if args.mode == "pair" else WindowDataset
-    train_data = dataset_class(train_docs, tokenizer, args.max_length, args.stride)
-    val_data = dataset_class(val_docs, tokenizer, args.max_length, args.stride)
-    # Validate every test annotation before spending time training. No scores are used.
-    test_data = dataset_class(test_docs, tokenizer, args.max_length, args.stride) if test_docs else None
     if args.mode == "pair":
-        model = PairABSA.from_pretrained(args.encoder, dropout=args.dropout, use_cls=not args.no_cls_feature)
+        def build(documents):
+            return PairDataset(documents, tokenizer, args.max_length, args.stride, scope=args.context_scope)
+    else:
+        def build(documents):
+            return WindowDataset(documents, tokenizer, args.max_length, args.stride)
+    train_data = build(train_docs)
+    val_data = build(val_docs)
+    # Validate every test annotation before spending time training. No scores are used.
+    test_data = build(test_docs) if test_docs else None
+    if args.mode == "pair":
+        model = PairABSA.from_pretrained(args.encoder, dropout=args.dropout,
+                                         use_cls=not args.no_cls_feature,
+                                         sentiment_head=args.sentiment_head)
     else:
         model = JointABSA.from_pretrained(args.encoder, local_radius=args.local_radius,
                                          fusion=not args.no_fusion, dropout=args.dropout,
-                                         use_cls=not args.no_cls_feature)
+                                         use_cls=not args.no_cls_feature,
+                                         sentiment_head=args.sentiment_head)
     extraction_weight = 0.0 if args.mode == "pair" else args.extraction_weight
     if args.max_length > getattr(model.encoder.config, "max_position_embeddings", args.max_length):
         raise ValueError("max-length exceeds this encoder's supported position range")
@@ -133,7 +143,8 @@ def train(args):
     scheduler = get_linear_schedule_with_warmup(optimizer, int(total_updates * args.warmup_ratio), total_updates)
     scaler = torch.amp.GradScaler("cuda", enabled=device.type == "cuda" and precision == "fp16")
     output.mkdir(parents=True, exist_ok=True)
-    metadata = {"max_length": args.max_length, "stride": args.stride, "encoder": args.encoder}
+    metadata = {"max_length": args.max_length, "stride": args.stride, "encoder": args.encoder,
+                "context_scope": args.context_scope}
     config = {**vars(args), "resolved_precision": precision, "resolved_device": str(device),
               "resolved_split_seed": split_seed, "effective_extraction_weight": extraction_weight,
               "train_path": str(train_path), "validation_path": str(validation_path), "test_path": str(test_path),
@@ -173,7 +184,7 @@ def train(args):
                 bio_logits, sentiment_logits = model(inputs, valid, spans)
                 loss, sentiment_loss, extraction_loss = joint_loss(
                     bio_logits, sentiment_logits, bio, labels, class_weights,
-                    extraction_weight, args.smoothing)
+                    extraction_weight, args.smoothing, args.sentiment_head)
                 # Correctly scale the last, potentially shorter accumulation group.
                 group_size = min(args.grad_accum, len(loader) - (step // args.grad_accum) * args.grad_accum)
                 scaled_loss = loss / group_size
@@ -275,6 +286,7 @@ def predict_or_evaluate(args):
             print(json.dumps({"text": args.text, "predictions": [], "mode": "two_stage"}, ensure_ascii=False, indent=2))
             return
     model, tokenizer, settings = JointABSA.load_checkpoint(args.checkpoint)
+    model.neutral_offset = getattr(args, "neutral_offset", 1.0)
     tokenizer.padding_side = "right"
     model.to(device)
     max_length, stride = settings["max_length"], settings["stride"]
@@ -297,8 +309,10 @@ def predict_or_evaluate(args):
         elif args.aspect_start is not None:
             raise ValueError("--aspect-start requires --aspect")
         documents = [Document("user", args.text, aspects)]
-    dataset_class = PairDataset if model.model_kind == "pair" else WindowDataset
-    data = dataset_class(documents, tokenizer, max_length, stride)
+    if model.model_kind == "pair":
+        data = PairDataset(documents, tokenizer, max_length, stride, scope=settings.get("context_scope", "sentence"))
+    else:
+        data = WindowDataset(documents, tokenizer, max_length, stride)
     metrics, gold_rows, sentence_rows = evaluate(model, tokenizer, data, device, args.batch_size,
                                                 precision, compute_metrics=args.command == "evaluate")
     if args.command == "evaluate":
@@ -343,6 +357,12 @@ def main():
     tr.add_argument("--class-weighting", choices=["sqrt", "none"], default="sqrt")
     tr.add_argument("--smoothing", type=float, default=0.05)
     tr.add_argument("--dropout", type=float, default=0.15)
+    tr.add_argument("--sentiment-head", choices=["softmax", "ordinal", "gate"], default="softmax",
+                    help="softmax: categorical baseline; ordinal: negative<neutral<positive; "
+                         "gate: opinion-presence then polarity (neutral = no opinion)")
+    tr.add_argument("--context-scope", choices=["sentence", "clause"], default="sentence",
+                    help="pair mode only: sentence keeps the whole context, clause restricts it to the "
+                         "aspect's own clause so a neighbouring opinion cannot leak across the boundary")
     tr.add_argument("--no-fusion", action="store_true")
     tr.add_argument("--no-cls-feature", action="store_true",
                     help="Ablation: omit CLS from the sentiment head; encoder contextualization remains")
@@ -363,6 +383,10 @@ def main():
     pr.add_argument("--aspect")
     pr.add_argument("--aspect-start", type=int)
     pr.add_argument("--extractor-checkpoint", help="Optional trained joint model for pair-mode automatic extraction")
+    for command in (ev, pr):
+        command.add_argument("--neutral-offset", type=float, default=1.0,
+                             help="Multiply P(neutral) before argmax; tune it on validation only "
+                                  "(scripts/tune_neutral_offset.py reports the value). 1.0 disables it")
     for command in (tr, ev, pr):
         command.add_argument("--batch-size", type=int, default=2)
         command.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")

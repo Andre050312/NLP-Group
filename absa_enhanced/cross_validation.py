@@ -177,8 +177,8 @@ def training_command(args, split_dir, run_dir):
     command = [sys.executable, "-m", "absa_enhanced", "train", "--dataset", "custom",
                "--train", str(split_dir / "train.xml"), "--validation", str(split_dir / "validation.xml"),
                "--test", str(split_dir / "held_out.xml"), "--output", str(run_dir)]
-    parameters = ("encoder", "mode", "epochs", "batch_size", "grad_accum", "learning_rate",
-                  "head_learning_rate", "weight_decay", "warmup_ratio", "max_length", "stride",
+    parameters = ("encoder", "mode", "sentiment_head", "context_scope", "epochs", "batch_size", "grad_accum",
+                  "learning_rate", "head_learning_rate", "weight_decay", "warmup_ratio", "max_length", "stride",
                   "local_radius", "extraction_weight", "class_weighting", "smoothing", "dropout",
                   "selection_metric", "patience", "seed", "device", "precision")
     for name in parameters:

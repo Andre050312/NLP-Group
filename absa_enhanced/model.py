@@ -7,17 +7,23 @@ from torch import nn
 from torch.nn import functional as F
 from transformers import AutoConfig, AutoModel
 
+from . import heads
+
 
 class JointABSA(nn.Module):
     model_kind = "joint"
 
-    def __init__(self, encoder, local_radius=16, fusion=True, dropout=0.15, use_cls=True):
+    def __init__(self, encoder, local_radius=16, fusion=True, dropout=0.15, use_cls=True,
+                 sentiment_head="softmax"):
         super().__init__()
         self.encoder = encoder
         self.local_radius = local_radius
         self.fusion = fusion
         self.dropout_rate = dropout
         self.use_cls = use_cls
+        # Keep the softmax trunk identical to the previous release so existing
+        # checkpoints still load with strict=True.
+        self.sentiment_head = sentiment_head
         hidden = encoder.config.hidden_size
         self.dropout = nn.Dropout(dropout)
         self.extractor = nn.Linear(hidden, 3)
@@ -28,11 +34,17 @@ class JointABSA(nn.Module):
         features = hidden * (2 + int(use_cls))
         self.sentiment = nn.Sequential(nn.LayerNorm(features), nn.Dropout(dropout),
                                        nn.Linear(features, 256), nn.GELU(),
-                                       nn.Dropout(dropout), nn.Linear(256, 3))
+                                       nn.Dropout(dropout), nn.Linear(256, heads.output_dim(sentiment_head)))
 
     @classmethod
     def from_pretrained(cls, name, **kwargs):
         return cls(AutoModel.from_pretrained(name), **kwargs)
+
+    def probabilities(self, logits):
+        return heads.probabilities(self.sentiment_head, logits, getattr(self, "neutral_offset", 1.0))
+
+    def sentiment_loss(self, logits, labels, class_weights=None, smoothing=0.05):
+        return heads.loss(self.sentiment_head, logits, labels, class_weights, smoothing)
 
     def encode(self, inputs):
         hidden = self.encoder(**inputs, return_dict=True).last_hidden_state
@@ -78,6 +90,7 @@ class JointABSA(nn.Module):
         torch.save({k: v.detach().cpu() for k, v in self.state_dict().items()}, directory / "model.pt")
         settings = {**metadata, "model_kind": self.model_kind, "local_radius": self.local_radius, "fusion": self.fusion,
                     "dropout": self.dropout_rate, "use_cls": self.use_cls,
+                    "sentiment_head": getattr(self, "sentiment_head", "softmax"),
                     "labels": ["negative", "neutral", "positive"]}
         (directory / "settings.json").write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
 
@@ -88,12 +101,15 @@ class JointABSA(nn.Module):
         directory = Path(directory)
         settings = json.loads((directory / "settings.json").read_text(encoding="utf-8"))
         encoder = AutoModel.from_config(AutoConfig.from_pretrained(directory / "encoder_config"))
+        sentiment_head = settings.get("sentiment_head", "softmax")
         if settings.get("model_kind", "joint") == "pair":
             from .pair import PairABSA
-            model = PairABSA(encoder, dropout=settings["dropout"], use_cls=settings.get("use_cls", True))
+            model = PairABSA(encoder, dropout=settings["dropout"], use_cls=settings.get("use_cls", True),
+                             sentiment_head=sentiment_head)
         else:
             model = cls(encoder, local_radius=settings["local_radius"], fusion=settings["fusion"],
-                        dropout=settings["dropout"], use_cls=settings.get("use_cls", True))
+                        dropout=settings["dropout"], use_cls=settings.get("use_cls", True),
+                        sentiment_head=sentiment_head)
         state = torch.load(directory / "model.pt", map_location="cpu", weights_only=True)
         model.load_state_dict(state, strict=True)
         tokenizer = AutoTokenizer.from_pretrained(directory / "tokenizer", use_fast=True)
@@ -101,16 +117,16 @@ class JointABSA(nn.Module):
 
 
 def joint_loss(bio_logits, sentiment_logits, bio_labels, sentiment_labels,
-               class_weights=None, extraction_weight=0.5, smoothing=0.05):
+               class_weights=None, extraction_weight=0.5, smoothing=0.05, head="softmax"):
     active = bio_labels != -100
     if active.any():
+        # Weight background as 0.3 because the class-weight path already rebalances sentiment.
         bio_weights = bio_logits.new_tensor([0.3, 1.0, 1.0], dtype=torch.float32)
         extraction = F.cross_entropy(bio_logits[active].float(), bio_labels[active], weight=bio_weights)
     else:
         extraction = bio_logits.sum() * 0
     if len(sentiment_labels):
-        sentiment = F.cross_entropy(sentiment_logits.float(), sentiment_labels,
-                                   weight=class_weights, label_smoothing=smoothing)
+        sentiment = heads.loss(head, sentiment_logits, sentiment_labels, class_weights, smoothing)
     else:
         sentiment = bio_logits.sum() * 0
     return sentiment + extraction_weight * extraction, sentiment, extraction

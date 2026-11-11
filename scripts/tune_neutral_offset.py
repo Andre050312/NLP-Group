@@ -64,6 +64,7 @@ def main():
     parser.add_argument("--grid", default="1,1.25,1.5,2,2.5,3,4,5,6", help="Candidate offsets")
     parser.add_argument("--bootstrap", type=int, default=2000, help="Paired resamples for the test delta; 0 disables")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--output", help="Where to write the JSON report; defaults beside the first run")
     args = parser.parse_args()
     grid = [float(value) for value in args.grid.split(",") if value.strip()]
 
@@ -119,7 +120,7 @@ def main():
             print(f"    delta {name:12s} {value['delta']:+.4f}  95% CI [{value['ci95_low']:+.4f}, "
                   f"{value['ci95_high']:+.4f}]  {'excludes 0' if value['conclusive'] else 'includes 0'}")
 
-    output = Path(args.runs[0]).resolve().parent / "neutral_offset.json"
+    output = Path(args.output) if args.output else Path(args.runs[0]).resolve().parent / "neutral_offset.json"
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"\nwrote {output}")
 

@@ -8,10 +8,22 @@
 尚未拿到组内真实模型的 checkpoint、逐条预测或原始 PR 数据，因此本文件不填造准确率、显著性或改进结论。
 GitHub 核查基于 `41fd25405c00b7bf00dcd6512da48e6c22dcad84`：只有 main，没有 PR，未提交所述 bias/gate 诊断结果。
 
+后续状态：PR #1 已于2026-11-11合并到小组主分支 `35bbb4d`，个人 Fork main 已同步。
+真实数据复核已完成，结果与继续实验建议见 [数据发现](neutral_data_findings.md)。
+2015/2016默认验证集中性仅3/9个，MAMS目前被重叠方面读取检查阻断；优先继续2014主实验。
+
 研究属于给定正确方面的情感三分类。不要与自动方面抽取或端到端 F1 混用。
 保留公开数据原始三分类标签，不把冲突或标注不确定改成中性。
 
 ## 1. 用已有预测生成统一报告
+
+没有预测文件时，可先检查真实标签支持数和当前划分：
+
+```powershell
+python -m neutral_diagnostics audit-data --output runs/data_audit_split42
+```
+
+该命令不调用模型，也不修改数据；检查输出中每个数据集的状态，blocked不表示可训练。
 
 先激活项目环境，从仓库根目录运行。以下 `runs/同学的实验目录` 必须换成实际路径。
 支持增强版 `*_gold_predictions.jsonl`，以及基线的 `predictions.jsonl`。

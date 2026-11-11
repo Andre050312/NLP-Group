@@ -70,13 +70,15 @@ class PairABSA(JointABSA):
     """The target participates in every encoder layer through the second sequence."""
     model_kind = "pair"
 
-    def __init__(self, encoder, dropout=0.15):
+    def __init__(self, encoder, dropout=0.15, use_cls=True):
         nn.Module.__init__(self)
         self.encoder = encoder
         self.local_radius, self.fusion, self.dropout_rate = 0, False, dropout
+        self.use_cls = use_cls
         hidden = encoder.config.hidden_size
-        self.sentiment = nn.Sequential(nn.LayerNorm(hidden * 3), nn.Dropout(dropout),
-                                       nn.Linear(hidden * 3, 256), nn.GELU(),
+        features = hidden * (2 + int(use_cls))
+        self.sentiment = nn.Sequential(nn.LayerNorm(features), nn.Dropout(dropout),
+                                       nn.Linear(features, 256), nn.GELU(),
                                        nn.Dropout(dropout), nn.Linear(256, 3))
 
     def encode(self, inputs):
@@ -94,4 +96,5 @@ class PairABSA(JointABSA):
         target = (selected * target_mask.unsqueeze(-1)).sum(1) / target_mask.sum(1, keepdim=True).clamp_min(1)
         query = query_mask[batch]
         query_vector = (selected * query.unsqueeze(-1)).sum(1) / query.sum(1, keepdim=True).clamp_min(1)
-        return self.sentiment(torch.cat((hidden[batch, 0], target, query_vector), -1))
+        parts = (hidden[batch, 0], target, query_vector) if self.use_cls else (target, query_vector)
+        return self.sentiment(torch.cat(parts, -1))

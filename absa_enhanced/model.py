@@ -11,12 +11,13 @@ from transformers import AutoConfig, AutoModel
 class JointABSA(nn.Module):
     model_kind = "joint"
 
-    def __init__(self, encoder, local_radius=16, fusion=True, dropout=0.15):
+    def __init__(self, encoder, local_radius=16, fusion=True, dropout=0.15, use_cls=True):
         super().__init__()
         self.encoder = encoder
         self.local_radius = local_radius
         self.fusion = fusion
         self.dropout_rate = dropout
+        self.use_cls = use_cls
         hidden = encoder.config.hidden_size
         self.dropout = nn.Dropout(dropout)
         self.extractor = nn.Linear(hidden, 3)
@@ -24,8 +25,9 @@ class JointABSA(nn.Module):
         self.global_key = nn.Linear(hidden, hidden)
         self.local_key = nn.Linear(hidden, hidden)
         self.gate = nn.Linear(hidden * 3, hidden)
-        self.sentiment = nn.Sequential(nn.LayerNorm(hidden * 3), nn.Dropout(dropout),
-                                       nn.Linear(hidden * 3, 256), nn.GELU(),
+        features = hidden * (2 + int(use_cls))
+        self.sentiment = nn.Sequential(nn.LayerNorm(features), nn.Dropout(dropout),
+                                       nn.Linear(features, 256), nn.GELU(),
                                        nn.Dropout(dropout), nn.Linear(256, 3))
 
     @classmethod
@@ -58,7 +60,8 @@ class JointABSA(nn.Module):
             context = gate * local_context + (1 - gate) * global_context
         else:
             context = global_context
-        features = torch.cat((hidden[batch, 0], aspect, context), -1)
+        parts = (hidden[batch, 0], aspect, context) if self.use_cls else (aspect, context)
+        features = torch.cat(parts, -1)
         return self.sentiment(features)
 
     def forward(self, inputs, valid, spans):
@@ -74,7 +77,8 @@ class JointABSA(nn.Module):
         # Own checkpoint only; torch.load below disables arbitrary pickle objects.
         torch.save({k: v.detach().cpu() for k, v in self.state_dict().items()}, directory / "model.pt")
         settings = {**metadata, "model_kind": self.model_kind, "local_radius": self.local_radius, "fusion": self.fusion,
-                    "dropout": self.dropout_rate, "labels": ["negative", "neutral", "positive"]}
+                    "dropout": self.dropout_rate, "use_cls": self.use_cls,
+                    "labels": ["negative", "neutral", "positive"]}
         (directory / "settings.json").write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
 
     @classmethod
@@ -86,9 +90,10 @@ class JointABSA(nn.Module):
         encoder = AutoModel.from_config(AutoConfig.from_pretrained(directory / "encoder_config"))
         if settings.get("model_kind", "joint") == "pair":
             from .pair import PairABSA
-            model = PairABSA(encoder, dropout=settings["dropout"])
+            model = PairABSA(encoder, dropout=settings["dropout"], use_cls=settings.get("use_cls", True))
         else:
-            model = cls(encoder, local_radius=settings["local_radius"], fusion=settings["fusion"], dropout=settings["dropout"])
+            model = cls(encoder, local_radius=settings["local_radius"], fusion=settings["fusion"],
+                        dropout=settings["dropout"], use_cls=settings.get("use_cls", True))
         state = torch.load(directory / "model.pt", map_location="cpu", weights_only=True)
         model.load_state_dict(state, strict=True)
         tokenizer = AutoTokenizer.from_pretrained(directory / "tokenizer", use_fast=True)

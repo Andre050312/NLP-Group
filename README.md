@@ -283,6 +283,9 @@ python -m bert_baseline train --model google-bert/bert-base-uncased --train Data
 
 ## 来源
 
+中性方面错误诊断、40 对控制样例和 `--no-cls-feature` 消融见 [实验指南](docs/neutral_scope_study.md)。
+个人分支与 PR 提交步骤见 [贡献指南](docs/GITHUB_CONTRIBUTION.md)。这些工具不预设真实模型的实验结果。
+
 - 模型：https://huggingface.co/microsoft/deberta-v3-base
 - 句对方法：https://aclanthology.org/N19-1035/
 - SemEval-2014：https://alt.qcri.org/semeval2014/task4/

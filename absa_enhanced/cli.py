@@ -98,10 +98,11 @@ def train(args):
     # Validate every test annotation before spending time training. No scores are used.
     test_data = dataset_class(test_docs, tokenizer, args.max_length, args.stride) if test_docs else None
     if args.mode == "pair":
-        model = PairABSA.from_pretrained(args.encoder, dropout=args.dropout)
+        model = PairABSA.from_pretrained(args.encoder, dropout=args.dropout, use_cls=not args.no_cls_feature)
     else:
         model = JointABSA.from_pretrained(args.encoder, local_radius=args.local_radius,
-                                         fusion=not args.no_fusion, dropout=args.dropout)
+                                         fusion=not args.no_fusion, dropout=args.dropout,
+                                         use_cls=not args.no_cls_feature)
     extraction_weight = 0.0 if args.mode == "pair" else args.extraction_weight
     if args.max_length > getattr(model.encoder.config, "max_position_embeddings", args.max_length):
         raise ValueError("max-length exceeds this encoder's supported position range")
@@ -343,6 +344,8 @@ def main():
     tr.add_argument("--smoothing", type=float, default=0.05)
     tr.add_argument("--dropout", type=float, default=0.15)
     tr.add_argument("--no-fusion", action="store_true")
+    tr.add_argument("--no-cls-feature", action="store_true",
+                    help="Ablation: omit CLS from the sentiment head; encoder contextualization remains")
     tr.add_argument("--no-gradient-checkpointing", action="store_true")
     tr.add_argument("--selection-metric", choices=["gold_accuracy", "gold_macro_f1", "end_to_end_f1"], default="gold_accuracy")
     tr.add_argument("--patience", type=int, default=2)

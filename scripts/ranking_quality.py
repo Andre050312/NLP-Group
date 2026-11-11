@@ -9,9 +9,11 @@ import statistics
 
 RUNS = {
     ("control", 42): "analysis_control", ("control", 43): "analysis_pair_ctrl_s43_test",
-    ("control", 44): "analysis_pair_ctrl_s44_test",
+    ("control", 44): "analysis_pair_ctrl_s44_test", ("control", 45): "analysis_pair_ctrl_s45_test",
+    ("control", 46): "analysis_pair_ctrl_s46_test",
     ("no_cls", 42): "analysis_no_cls", ("no_cls", 43): "analysis_nocls_s43_test",
-    ("no_cls", 44): "analysis_nocls_s44_test",
+    ("no_cls", 44): "analysis_nocls_s44_test", ("no_cls", 45): "analysis_pair_nocls_s45_test",
+    ("no_cls", 46): "analysis_pair_nocls_s46_test",
 }
 
 
@@ -43,8 +45,15 @@ for config in ("control", "no_cls"):
 
 print("\npaired AP difference (no_cls - control):")
 deltas = []
-for seed in (42, 43, 44):
+for seed in sorted({k[1] for k in rows}):
     delta = rows[("no_cls", seed)][1] - rows[("control", seed)][1]
     deltas.append(delta)
     print(f"  seed {seed}: {delta:+.4f}")
-print(f"  mean {statistics.mean(deltas):+.4f} ± {statistics.stdev(deltas):.4f}")
+print(f"  mean {statistics.mean(deltas):+.4f} ± {statistics.stdev(deltas):.4f}"
+      f" | positive on {sum(d > 0 for d in deltas)}/{len(deltas)} seeds")
+
+print("\npaired best-threshold F1 difference (no_cls - control):")
+deltas = [rows[("no_cls", s)][2] - rows[("control", s)][2] for s in sorted({k[1] for k in rows})]
+print("  " + " ".join(f"{d:+.4f}" for d in deltas) +
+      f" | mean {statistics.mean(deltas):+.4f} ± {statistics.stdev(deltas):.4f}"
+      f" | positive on {sum(d > 0 for d in deltas)}/{len(deltas)} seeds")

@@ -47,6 +47,8 @@ for config in configs:
 
 if len(configs) == 2:
     print("\nPaired per-seed difference (no-cls - control), after each config's own tuned offset:")
+    from math import comb
+    critical = {2: 12.71, 3: 4.30, 4: 3.18, 5: 2.78, 6: 2.57}.get(len(seeds), 2.57)
     for metric in ("macro_f1", "accuracy"):
         deltas = [table[("no_cls", s)]["tuned"][metric] - table[("control", s)]["tuned"][metric] for s in seeds]
         mean, std = statistics.mean(deltas), statistics.stdev(deltas)
@@ -59,4 +61,9 @@ if len(configs) == 2:
     t = mean / (std / len(deltas) ** 0.5) if std else float("inf")
     print(f"  neutral_f1  " + " ".join(f"{d:+.4f}" for d in deltas) +
           f" | mean {mean:+.4f} ± {std:.4f} | t={t:+.2f}")
-    print("\n  |t| must exceed 4.30 for p<.05 with 3 paired seeds; smaller values are unresolved.")
+    positive = sum(1 for seed in seeds
+                   if table[("no_cls", seed)]["tuned"]["macro_f1"] > table[("control", seed)]["tuned"]["macro_f1"])
+    tail = sum(comb(len(seeds), k) for k in range(max(positive, len(seeds) - positive), len(seeds) + 1))
+    print(f"  macro-F1 sign test: {positive}/{len(seeds)} positive, exact two-sided "
+          f"p={min(1.0, 2 * tail / 2 ** len(seeds)):.4f}")
+    print(f"\n  |t| must exceed {critical} for p<.05 with {len(seeds)} paired seeds.")

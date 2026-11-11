@@ -20,7 +20,10 @@ $python = ".\.venv\Scripts\python.exe"
 
 $prefix = if ($Config -eq "nocls") { "pair_nocls" } else { "pair_ctrl" }
 $label = if ($Config -eq "nocls") { "pair_no_cls" } else { "pair_control" }
-$extra = if ($Config -eq "nocls") { @("--no-cls-feature") } else { @() }
+# Assign inside the branch: an `if` used as an expression unrolls a one-element
+# array to a scalar string, and splatting a string passes it character by character.
+[string[]]$extra = @()
+if ($Config -eq "nocls") { $extra = @("--no-cls-feature") }
 
 foreach ($seed in $seedList) {
     $run = "runs/${prefix}_s$seed"

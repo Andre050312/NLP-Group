@@ -183,7 +183,7 @@ def training_command(args, split_dir, run_dir):
                   "selection_metric", "patience", "seed", "device", "precision")
     for name in parameters:
         command.extend(("--" + name.replace("_", "-"), str(getattr(args, name))))
-    for name in ("no_fusion", "no_gradient_checkpointing"):
+    for name in ("no_fusion", "no_gradient_checkpointing", "no_cls_feature"):
         if getattr(args, name):
             command.append("--" + name.replace("_", "-"))
     return command

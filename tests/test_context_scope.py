@@ -4,7 +4,7 @@ import tempfile
 import unittest
 
 import torch
-from transformers import BertTokenizerFast
+from transformers import BertConfig, BertTokenizerFast
 
 from absa_enhanced.data import Aspect, Document
 from absa_enhanced.pair import PairDataset, clause_bounds
@@ -89,6 +89,74 @@ class ClauseScopeDatasetTests(unittest.TestCase):
     def test_unknown_scope_is_rejected(self):
         with self.assertRaises(ValueError):
             PairDataset([self.document], self.tokenizer, 32, scope="document")
+
+
+class PairDiagnosticsScopeTests(unittest.TestCase):
+    """neutral_diagnostics must honour the scope stored in the checkpoint."""
+
+    def setUp(self):
+        import csv
+        import subprocess
+        import sys
+        torch.set_num_threads(1)
+        torch.manual_seed(5)
+        self.subprocess, self.sys, self.csv = subprocess, sys, csv
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.directory = Path(self.temp.name)
+        vocab = ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", "i", "ordered", "the", "soup", ",",
+                 "and", "service", "was", "great", "awful", "terrible", "decor", "nice"]
+        path = self.directory / "vocab.txt"
+        path.write_text("\n".join(vocab) + "\n", encoding="utf-8")
+        self.tokenizer = BertTokenizerFast(vocab_file=str(path), do_lower_case=True)
+        self.config = BertConfig(vocab_size=len(vocab), hidden_size=24, num_hidden_layers=1,
+                                 num_attention_heads=2, intermediate_size=32, max_position_embeddings=64)
+
+    def pairs(self):
+        path = self.directory / "pairs.csv"
+        rows = []
+        for index, (positive, negative) in enumerate((("great", "awful"), ("nice", "terrible"))):
+            rows.append({"pair_id": f"scope_{index}", "target": "soup", "expected_label": "neutral",
+                         "distractor": "service", "positive_expression": positive,
+                         "negative_expression": negative,
+                         "text_positive_neighbor": f"i ordered the soup , and service was {positive}",
+                         "text_negative_neighbor": f"i ordered the soup , and service was {negative}",
+                         "review_status": "pending", "reviewer": "", "review_notes": "", "source": "test"})
+        with path.open("w", encoding="utf-8", newline="") as stream:
+            writer = self.csv.DictWriter(stream, fieldnames=list(rows[0]))
+            writer.writeheader()
+            writer.writerows(rows)
+        return path
+
+    def predict(self, scope):
+        from absa_enhanced.pair import PairABSA
+        from transformers import BertModel
+        checkpoint = self.directory / f"cpk_{scope}"
+        PairABSA(BertModel(self.config), dropout=0.0, use_cls=True).save_checkpoint(
+            checkpoint, self.tokenizer,
+            {"max_length": 32, "stride": 8, "encoder": "tiny-test", "context_scope": scope})
+        output = self.directory / f"pairs_{scope}"
+        result = self.subprocess.run([self.sys.executable, "-m", "neutral_diagnostics", "predict-pairs",
+                                      "--pairs", str(self.pairs()), "--checkpoint", str(checkpoint),
+                                      "--output", str(output), "--include-unreviewed", "--device", "cpu",
+                                      "--precision", "no"],
+                                     cwd=Path(__file__).resolve().parents[1],
+                                     capture_output=True, text=True, timeout=180,
+                                     encoding="utf-8", errors="replace")
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+        import json
+        return json.loads((output / "pair_metrics.json").read_text(encoding="utf-8"))
+
+    def test_clause_checkpoint_is_evaluated_with_clause_context(self):
+        clause = self.predict("clause")
+        # The target clause is identical in both conditions, so a clause-scoped
+        # model cannot change its answer; sentence scope still sees the distractor.
+        self.assertEqual(clause["groups"]["neutral_targets"]["invariant_mean"], 1.0)
+        self.assertEqual(clause["groups"]["neutral_targets"]["absolute_neutral_probability_change_mean"], 0.0)
+
+    def test_sentence_checkpoint_is_unaffected(self):
+        sentence = self.predict("sentence")
+        self.assertGreater(sentence["groups"]["neutral_targets"]["absolute_neutral_probability_change_mean"], 0.0)
 
 
 if __name__ == "__main__":

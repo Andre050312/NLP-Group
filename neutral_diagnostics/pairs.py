@@ -106,8 +106,13 @@ def predict_pairs(args):
         tokenizer.padding_side = "right"
         model.to(device)
         documents = [Document(t["sentence_id"], t["text"], (Aspect(t["start"], t["end"], t["label"]),)) for t in targets]
-        factory = PairDataset if model.model_kind == "pair" else WindowDataset
-        data = factory(documents, tokenizer, settings["max_length"], settings["stride"])
+        if model.model_kind == "pair":
+            # Honour the scope the checkpoint was trained with, so a clause-scoped
+            # model is not silently evaluated on whole-sentence context.
+            data = PairDataset(documents, tokenizer, settings["max_length"], settings["stride"],
+                              scope=settings.get("context_scope", "sentence"))
+        else:
+            data = WindowDataset(documents, tokenizer, settings["max_length"], settings["stride"])
         _, predicted_rows, _ = evaluate(model, tokenizer, data, device, args.batch_size, precision, compute_metrics=False)
         by_id = {r["sentence_id"]: r for r in predicted_rows}
         predictions = {key: by_id[target["sentence_id"]] for key, target in zip(keys, targets)}

@@ -74,6 +74,16 @@ python -m neutral_diagnostics validate-pairs
 保留两人独立标注记录，以实际复核后的 CSV 为准，不把模型起草的候选标签写成人工金标准。
 工具检查机械条件，但不能代替语义复核。
 
+复核不要手工编辑 CSV，用生成好的勾选页面，两个人的记录不会互相覆盖：
+
+```powershell
+python scripts/build_pair_review_sheet.py     # 生成 data/diagnostics/neutral_scope_pairs_review.html
+# 两位同学各自在浏览器里打开、填姓名、逐对勾选并导出自己的 CSV
+python scripts/apply_pair_review.py review_A.csv review_B.csv --write
+```
+
+页面本地保存进度，按复核人姓名分桶。合并脚本要求两份文件来自**不同**复核人且覆盖全部 40 对；只有两人一致的行才落地为 `approved` / `rejected`，分歧行保持 `pending`，并列进 `data/diagnostics/pair_review_audit.json` 供讨论。复核时不要看任何模型输出。
+
 有真实模型后：
 
 ```powershell

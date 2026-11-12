@@ -1,8 +1,9 @@
 ﻿# Replicate one configuration at extra training seeds on a fixed split.
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/replicate_neutral_seeds.ps1
 #        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/replicate_neutral_seeds.ps1 -Config control -Seeds 43,44
+#        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/replicate_neutral_seeds.ps1 -Config gate -Seeds 43,44
 param(
-    [ValidateSet("control", "nocls")]
+    [ValidateSet("control", "nocls", "gate", "ordinal", "clause")]
     [string]$Config = "nocls",
     # Comma-separated, e.g. "43,44". Parsed by hand because `powershell -File`
     # passes the whole token as one string instead of splitting it.
@@ -18,12 +19,31 @@ $env:HF_HOME = "D:\NLP-cache\huggingface"
 $env:PYTHONUNBUFFERED = "1"
 $python = ".\.venv\Scripts\python.exe"
 
-$prefix = if ($Config -eq "nocls") { "pair_nocls" } else { "pair_ctrl" }
-$label = if ($Config -eq "nocls") { "pair_no_cls" } else { "pair_control" }
+# Prefixes match the existing seed-42 directories so five seeds of one config share a stem.
+# control seed 42 lives in runs/pair_heads_softmax_s42, the rest in runs/pair_ctrl_s43..46.
+$prefix = switch ($Config) {
+    "nocls"   { "pair_nocls" }
+    "control" { "pair_ctrl" }
+    "gate"    { "pair_heads_gate" }
+    "ordinal" { "pair_heads_ordinal" }
+    "clause"  { "pair_clause_softmax" }
+}
+$label = switch ($Config) {
+    "nocls"   { "pair_no_cls" }
+    "control" { "pair_control" }
+    "gate"    { "pair_gate_head" }
+    "ordinal" { "pair_ordinal_head" }
+    "clause"  { "pair_clause_scope" }
+}
 # Assign inside the branch: an `if` used as an expression unrolls a one-element
 # array to a scalar string, and splatting a string passes it character by character.
 [string[]]$extra = @()
-if ($Config -eq "nocls") { $extra = @("--no-cls-feature") }
+switch ($Config) {
+    "nocls"   { $extra = @("--no-cls-feature") }
+    "gate"    { $extra = @("--sentiment-head", "gate") }
+    "ordinal" { $extra = @("--sentiment-head", "ordinal") }
+    "clause"  { $extra = @("--context-scope", "clause") }
+}
 
 foreach ($seed in $seedList) {
     $run = "runs/${prefix}_s$seed"
@@ -39,8 +59,9 @@ foreach ($seed in $seedList) {
         $out = "runs/analysis_${prefix}_s${seed}_$split"
         if (Test-Path $out) { Remove-Item -Recurse -Force $out }
         $file = if ($split -eq "validation") { "$run/validation_best_gold_predictions.jsonl" } else { "$run/test_gold_predictions.jsonl" }
-        $extraArgs = if ($split -eq "test") { @("--gold-xml", "Database/Restaurant3/test.xml") } else { @() }
-        & $python -m neutral_diagnostics analyze --predictions $file @extraArgs --dataset restaurant3 `
+        [string[]]$splitArgs = @()
+        if ($split -eq "test") { $splitArgs = @("--gold-xml", "Database/Restaurant3/test.xml") }
+        & $python -m neutral_diagnostics analyze --predictions $file @splitArgs --dataset restaurant3 `
             --split $split --run-id "${prefix}_seed$seed" --model-label $label `
             --training-seed $seed --output $out | Out-Null
     }

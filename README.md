@@ -190,6 +190,19 @@ python scripts/tune_neutral_offset.py --runs runs/a runs/b --metric macro_f1
 
 两个脚本都要求各 run 预测的是同一批 gold 方面（同一 split seed），否则拒绝合并。配对 bootstrap 回答的是"这个差值是不是噪声"，报告里应写区间而不是只写均值。
 
+### 40 对控制样例的人工复核
+
+样例默认全部是 `pending`，语义条件只能由人判断。生成逐对勾选页面，两位同学各自独立复核，再合并：
+
+```powershell
+python scripts/build_pair_review_sheet.py    # 生成 data/diagnostics/neutral_scope_pairs_review.html
+python -m neutral_diagnostics validate-pairs # 机械条件检查（词频、重叠、跨度）
+python scripts/apply_pair_review.py review_A.csv review_B.csv          # 只出报告
+python scripts/apply_pair_review.py review_A.csv review_B.csv --write  # 写回 canonical CSV
+```
+
+页面在浏览器本地保存进度，按复核人姓名分桶，导出时自动填入 `review_status`、`reviewer`、`review_notes`。合并脚本要求两份文件来自不同复核人、覆盖全部样例；只有两人一致的行才落地为 `approved` / `rejected`，分歧行保持 `pending` 并列在 `data/diagnostics/pair_review_audit.json`。
+
 ### 实测（Restaurant3，split-seed 42，6 epoch，`--class-weighting none`，按验证 Accuracy 选模）
 
 完整数据、置信区间、配对检验与复现命令见 [中性诊断实测结果](docs/neutral_results.md)。
@@ -234,20 +247,26 @@ python scripts/tune_neutral_offset.py --runs runs/a runs/b --metric macro_f1
 | `--no-cls-feature`（n=5） | +0.0071 ± 0.0068 | +0.0172 ± 0.0159 | 5/5 |
 | 合并（n=10） | **+0.0084 ± 0.0087** | **+0.0217 ± 0.0222** | **10/10** |
 
+固定 k（不经各 run 选择，`scripts/fixed_offset_check.py`）：k=2 时 10 个 run 的 Macro-F1 平均 +0.0121（9/10 为正）、中性 F1 +0.0311。
+
+**但这一增益在分组 3 折交叉验证上没有复现**（`scripts/cv_offset.py`）：control 的嵌套偏移 Macro-F1 −0.0039（95% CI [−0.0102, +0.0023]）、中性 F1 −0.0001；no CLS 为 +0.0032 / +0.0129（CI 含 0）。同一批 3 折上 no CLS 在 3/3 折更差（Macro-F1 −0.0059、中性 F1 −0.0108）。原因见 [中性结果](docs/neutral_results.md) 第 9.3 节：训练池留出数据上模型的中性 precision 只有 0.669（测试集 0.771），操作点已经偏"多判中性"，继续加大偏移只会压低 precision。
+
 读数时注意：
 
-- **`--no-cls-feature` 与对照在 5 个种子上无差异**：Macro-F1 差 +0.0030（t=1.00）、中性 F1 差 +0.0091（t=0.91）、排序 AP 差 +0.0087（t=1.46）；各自加偏移后 Macro-F1 差 +0.0005（t=0.07）。正确表述是"与对照等价、分类头参数更少"，不是"更好"。
-- **本轮唯一稳健的改进是中性偏移**：10 个 run 全部非负，合并 Macro-F1 +0.0084、中性 F1 +0.0217，符号检验 p≈0.002；并且两个配置收益相当（+0.0096 vs +0.0071），说明它不是某个消融专属的，而是通用的决策边界校准。它同时压小了种子方差（对照 Macro-F1 SD 0.0164 → 0.0100）。
+- **`--no-cls-feature` 与对照在 5 个种子上无差异**：Macro-F1 差 +0.0030（t=1.00）、中性 F1 差 +0.0091（t=0.91）、排序 AP 差 +0.0087（t=1.46）；各自加偏移后 Macro-F1 差 +0.0005（t=0.07）。交叉验证上 3/3 折更差。正确表述是"没有证据支持有益，交叉验证方向轻微有害"，不是"更好"。
+- **中性偏移只在官方测试划分上为正**：10 个 run 全部非负、符号检验 p≈0.002，但嵌套交叉验证不成立（见上）。它是一个**针对该划分的操作点补偿**，不是可迁移的校准方法。可以写"在这个固定划分上稳定为正"，不能写"稳健提升了中性 F1"。
 - **一个必须记住的教训**：只有 seed 42/43/44 时，偏移后的配对差是 +0.0105 ± 0.0024（t=7.65），看起来像"三个种子一致领先"。补上 seed 45/46（差为 −0.0037 与 −0.0252）后变成 +0.0005 ± 0.0157。**n=3 时极小的 SD 是抽样巧合**，配置比较至少需要 5 个种子。
 - 前五行中性 F1 的句级 bootstrap 区间**全部互相重叠**；**种子方差（Macro-F1 SD 0.016–0.019、极差 0.040–0.047）比 `gate`/`ordinal` 的差异更大**：`gate`（−0.0058）与 `ordinal`（−0.0153）相对对照的差距落在噪声里，只有 `clause`（−0.0638）明显超出。`gate`/`ordinal`/`clause` 目前只有 1 个种子。
-- 中性 F1 的阈值天花板约 **0.66**（5 种子均值：对照 0.6585、no-CLS 0.6665），而 argmax 只有 0.594 / 0.603。偏移已兑现其中大部分，继续调阈值空间很小。
+- BERT-base 基线补到 5 个种子后中性 F1 只有 0.562 ± 0.072（种子极差 0.16），实测汇总见 [中性结果](docs/neutral_results.md) 第 1a 节。单种子比较会让这个基线看起来更好或更差，方向随机。
+- 前五行中性 F1 的句级 bootstrap 区间**全部互相重叠**；**种子方差（Macro-F1 SD 0.016–0.019、极差 0.040–0.047）比 `gate`/`ordinal` 的差异更大**：`gate`（−0.0058）与 `ordinal`（−0.0153）相对对照的差距落在噪声里，只有 `clause`（−0.0638）明显超出。`gate`/`ordinal`/`clause` 目前只有 1 个种子。
+- 中性 F1 的阈值天花板约 **0.66**（5 种子均值：对照 0.6585、no-CLS 0.6665），而 argmax 只有 0.594 / 0.603。偏移在官方测试划分上只兑现了其中一部分（中性 F1 +0.022），交叉验证上并未兑现，所以不要把 0.66 当作"可达成绩"。
 - **验证集会高估中性**：对照验证 neutral F1 0.685 / 测试 0.632，`gate` 验证 0.720 / 测试 0.611。用验证集调中性相关超参数会把乐观偏差带进结论，最终数字必须来自官方测试集，且测试集只评一次。
 - `clause` 上下文把验证与测试的 neutral F1 拉平到 0.52 左右，说明整句上下文既带来泛化也带来混淆：直接切掉分句会丢掉有用信息，不能只当噪声处理。
 - 中性错误的 45% 直接复制了同一句里邻近方面的极性；混句中的中性 recall（0.458）低于纯中性句（0.584）。40 对受控样例给出更强的证据：只翻转同句另一个方面的一个词，中性目标的中性概率平均移动 0.354，80% 的对里预测翻转，而极性对照完全不变。这类错误需要跨方面归属能力，不是调阈值能解决的。这些细分统计来自 seed 42 的单个 checkpoint，未做多种子复核。
 
 `--no-cls-feature` 是去掉了分类头里的 CLS 向量（编码器与注意力不变，方面 token 自身仍编码全局信息），因此它不是"隔绝全句信息"的消融。它在受控样例上把对干扰方面的敏感度从 0.354 降到 0.257，但 5 个种子上测试集中性 F1 没有随之提高。
 
-`neutral_diagnostics` 的输出（AP、置信度、校准、句级 bootstrap、40 对受控样例）与本节表格的关系：它提供统一口径与区间，本节数字均已用它复算。两条使用方法上的约束：不要在这份报告上选阈值（测试集只评一次），不要把"匹配邻居极性"写成因果。受控样例的 40 行目前仍是 `pending`，需两人独立复核后才能作为金标准引用。
+`neutral_diagnostics` 的输出（AP、置信度、校准、句级 bootstrap、40 对受控样例）与本节表格的关系：它提供统一口径与区间，本节数字均已用它复算。使用方法上的约束：不要把"匹配邻居极性"写成因果；测试集在本项目中已被反复评分（见 [中性结果](docs/neutral_results.md) 第 8 节），绝对分数偏乐观，比较结论要靠种子方差、配对检验与交叉验证支撑。受控样例的 40 行目前仍是 `pending`，需两人独立复核后才能作为金标准引用。
 
 ## 9. 保存与结果
 
@@ -363,7 +382,18 @@ runs/cv_pair_restaurant_split42/
 
 `--resume` 只跳过源数据、参数、实现哈希匹配且结果完整的已完成折；不支持恢复某折训练到一半的优化器状态。遇到未完成的 run 目录会中止，不自动删除实验。代码或参数改变时使用新输出目录。
 
-新增离线测试包含小模型的 3 折命令行流程，全部测试耗时会增加。本文未声称最新交叉验证代码已运行训练或通过测试，应在目标 Windows 环境执行验证。
+新增离线测试包含小模型的 3 折命令行流程，全部测试耗时会增加。
+
+### 本项目的 3 折实验
+
+`control` 与 `--no-cls-feature` 各跑 3 折，用于给出不依赖单个划分的无偏估计：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_cv_3fold.ps1 -Config both
+python scripts/cv_offset.py --cv-dir runs/cv_control_3fold --cv-dir runs/cv_nocls_3fold
+```
+
+第二行在**每折自己的内层验证集**上选中性偏移，再作用到该折的外层留出方面，因此偏移本身也是嵌套评价的一部分，而不是在留出集上调出来的。中断后重跑第一条命令即可，`--resume` 会跳过已完成的折。
 
 ## 12. BERT 基线
 
@@ -372,6 +402,24 @@ runs/cv_pair_restaurant_split42/
 ```powershell
 python -m bert_baseline train --model google-bert/bert-base-uncased --train Database/Restaurant3/train.xml --test Database/Restaurant3/test.xml --output runs/bert_restaurant_threeclass --epochs 3 --batch-size 4 --learning-rate 2e-5 --max-length 128 --seed 42 --device auto
 ```
+
+基线默认用 `--seed` 同时决定划分和初始化。要与固定划分的 pair 实验对比，加 `--split-seed 42`：划分只由它决定，`--seed` 只改变训练随机性。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/replicate_bert_seeds.ps1 -Seeds 42,43,44,45,46
+```
+
+该脚本产出 `runs/bert_split42_seed{42..46}`，与 pair 实验共用同一批 1682/295/800 句。基线按验证 Macro-F1 选模，pair 实验按验证 Accuracy 选模，两者的选模规则不同，跨模型比较时应说明这一点。跨模型汇总与 Welch 检验：
+
+```powershell
+python scripts/compare_baselines.py `
+  --group "bert=runs/bert_split42_seed42,runs/bert_split42_seed43,runs/bert_split42_seed44,runs/bert_split42_seed45,runs/bert_split42_seed46" `
+  --group "pair_control=runs/pair_heads_softmax_s42,runs/pair_ctrl_s43,runs/pair_ctrl_s44,runs/pair_ctrl_s45,runs/pair_ctrl_s46" `
+  --output runs/baseline_comparison.json
+```
+
+五个种子的实测汇总见 [中性结果](docs/neutral_results.md) 第 1a 节。
+
 
 ## 13. 常见问题
 

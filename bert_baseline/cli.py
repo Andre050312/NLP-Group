@@ -57,7 +57,9 @@ def train(args):
     if args.validation:
         validation_examples, validation_stats = read_xml(args.validation, args.include_conflict)
     else:
-        train_examples, validation_examples = split_train_validation(train_examples, args.validation_fraction, args.seed)
+        train_examples, validation_examples = split_train_validation(
+            train_examples, args.validation_fraction,
+            args.seed if args.split_seed is None else args.split_seed)
         validation_stats = {"examples": len(validation_examples)}
     ensure_disjoint(train=train_examples, validation=validation_examples)
     # Audit the held-out split for leakage, but never select models on its scores.
@@ -175,6 +177,9 @@ def main():
     tr.add_argument("--learning-rate", type=float, default=2e-5)
     tr.add_argument("--weight-decay", type=float, default=0.01)
     tr.add_argument("--seed", type=int, default=42)
+    tr.add_argument("--split-seed", type=int, default=None,
+                    help="Seed for the train/validation split only; defaults to --seed. "
+                         "Fix it to keep the partition while varying the training seed.")
     tr.add_argument("--validation-fraction", type=float, default=0.15)
     tr.add_argument("--include-conflict", action="store_true")
     tr.add_argument("--freeze-encoder", action="store_true")

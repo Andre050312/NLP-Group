@@ -1,9 +1,10 @@
-"""Tune a neutral logit offset on validation, then report the untouched test score.
+"""Tune a neutral decision offset on validation and evaluate held-out predictions.
 
 Multiplying P(neutral) by k and renormalising is the same as adding log(k) to the neutral
-logit, so this calibrates the systematic under-prediction of neutral without changing the
-model. The offset is chosen on the internal validation split only; the official test set
-is scored once with that value. Use the printed value as `--neutral-offset` when scoring.
+logit. This changes the operating point; improved probability calibration is not implied.
+The chosen offset uses internal validation only. The full test grid is printed for
+exploratory inspection and must never be used to select the offset. Use the validation
+choice as `--neutral-offset` when scoring. Bootstrap resamples exact-text sentences.
 
     python scripts/tune_neutral_offset.py --runs runs/a runs/b --metric macro_f1
 """
@@ -12,12 +13,13 @@ import json
 from pathlib import Path
 import random
 import sys
-
 if __package__:
-    from ..bert_baseline.data import classification_metrics
-else:  # `python scripts/tune_neutral_offset.py`
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from bert_baseline.data import classification_metrics
+    from .evaluation_stats import sentence_clusters, sample_clusters
+else:
+    from evaluation_stats import sentence_clusters, sample_clusters
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from bert_baseline.data import classification_metrics
 
 LABELS = ("negative", "neutral", "positive")
 NEUTRAL = 1
@@ -84,10 +86,12 @@ def main():
             rng = random.Random(args.seed)
             gold, base_predictions = predict(test, 1.0)
             _, tuned_predictions = predict(test, chosen["offset"])
-            indices = list(range(len(gold)))
+            clusters = sentence_clusters(test)
+            entry["bootstrap_design"] = {"unit": "exact_sentence_text", "clusters": len(clusters),
+                                         "paired": True, "conditions_on_fitted_models": True}
             deltas = {"accuracy": [], "macro_f1": [], "neutral_f1": []}
             for _ in range(args.bootstrap):
-                sample = [rng.choice(indices) for _ in indices]
+                sample = sample_clusters(clusters, rng)
                 a = classification_metrics([gold[i] for i in sample], [base_predictions[i] for i in sample], LABELS)
                 b = classification_metrics([gold[i] for i in sample], [tuned_predictions[i] for i in sample], LABELS)
                 deltas["accuracy"].append(b["accuracy"] - a["accuracy"])

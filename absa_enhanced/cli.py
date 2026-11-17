@@ -357,8 +357,9 @@ def main():
     tr.add_argument("--class-weighting", choices=["sqrt", "none"], default="sqrt")
     tr.add_argument("--smoothing", type=float, default=0.05)
     tr.add_argument("--dropout", type=float, default=0.15)
-    tr.add_argument("--sentiment-head", choices=["softmax", "ordinal", "gate"], default="softmax",
-                    help="softmax: categorical baseline; ordinal: negative<neutral<positive; "
+    tr.add_argument("--sentiment-head", choices=["softmax", "ordinal", "ordered", "gate"], default="softmax",
+                    help="softmax: categorical baseline; ordinal: legacy inconsistent head (compatibility only); "
+                         "ordered: consistent cumulative head (requires new training); "
                          "gate: opinion-presence then polarity (neutral = no opinion)")
     tr.add_argument("--context-scope", choices=["sentence", "clause"], default="sentence",
                     help="pair mode only: sentence keeps the whole context, clause restricts it to the "

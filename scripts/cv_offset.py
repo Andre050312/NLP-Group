@@ -21,6 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import tune_neutral_offset as tno  # noqa: E402
+from evaluation_stats import sentence_clusters, sample_clusters
 
 LABELS = tno.LABELS
 SCALARS = ("accuracy", "macro_f1")
@@ -99,10 +100,12 @@ def main() -> int:
 
         if args.bootstrap:
             rng = random.Random(args.seed)
-            indices = list(range(len(gold)))
+            clusters = sentence_clusters(pooled_rows)
+            summary["bootstrap_design"] = {"unit": "exact_sentence_text", "clusters": len(clusters),
+                                           "paired": True, "conditions_on_fitted_models": True}
             deltas = {name: [] for name in (*SCALARS, "neutral_f1")}
             for _ in range(args.bootstrap):
-                sample = [rng.choice(indices) for _ in indices]
+                sample = sample_clusters(clusters, rng)
                 a = tno.classification_metrics([gold[i] for i in sample],
                                                [pooled_base[i] for i in sample], LABELS)
                 b = tno.classification_metrics([gold[i] for i in sample],

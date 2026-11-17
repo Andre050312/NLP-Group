@@ -1,0 +1,76 @@
+{
+  "source_commit": "9274787feadaab933d3f9be0110330ecefb476a1",
+  "model_rerun": false,
+  "counts_verified_from_xml": {
+    "train": {
+      "negative": 677,
+      "neutral": 520,
+      "positive": 1849
+    },
+    "validation": {
+      "negative": 128,
+      "neutral": 113,
+      "positive": 314
+    },
+    "test": {
+      "negative": 196,
+      "neutral": 196,
+      "positive": 728
+    }
+  },
+  "train_unique_texts": 1680,
+  "paired_macro_mean": 0.0030200000000000005,
+  "paired_macro_sd": 0.006710216091900473,
+  "offset_signs_arithmetic_only": {
+    "positive": 8,
+    "negative": 0,
+    "ties": 2,
+    "n_nonzero": 8,
+    "p_two_sided": 0.0078125
+  },
+  "inference_warning": "No pooled significance claim; runs share seeds/configurations and test set",
+  "gold_cases_not_model_predictions": [
+    {
+      "id": "11359727#487554#2",
+      "text": "Even when the chef is not in the house, the food and service are right on target.",
+      "gold": [
+        {
+          "aspect": "chef",
+          "label": "neutral"
+        },
+        {
+          "aspect": "food",
+          "label": "positive"
+        },
+        {
+          "aspect": "service",
+          "label": "positive"
+        }
+      ]
+    },
+    {
+      "id": "32899414#512291#0",
+      "text": "A beautiful atmosphere, perfect for drinks and/or appetizers.",
+      "gold": [
+        {
+          "aspect": "atmosphere",
+          "label": "positive"
+        },
+        {
+          "aspect": "drinks",
+          "label": "neutral"
+        },
+        {
+          "aspect": "appetizers",
+          "label": "neutral"
+        }
+      ]
+    }
+  ],
+  "sha256": {
+    "docs/neutral_results.md": "b05da1efae3d4b9072c02d70bb87fbbeab1c001650b06d701f1f551022527205",
+    "Database/Restaurant3/manifest.json": "78dbc9f073845642bf221cd3610b74522b8b4d96b9a2b1b5d025d69f8133215f",
+    "Database/Restaurant3/train.xml": "a13ea5b57ef25ff0ade2f6a39789d181bc088b9bf936014487edea2d2373a856",
+    "Database/Restaurant3/test.xml": "44dbba8c29f3e53ddb2890b023beaefa7b8e163ff9dc17ed3b6e520f14c3c282"
+  }
+}

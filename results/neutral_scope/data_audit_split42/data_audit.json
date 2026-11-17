@@ -1,0 +1,444 @@
+{
+  "schema_version": 1,
+  "purpose": "Label support and split/reader audit only; no model performance measured",
+  "datasets": [
+    {
+      "dataset": "restaurant",
+      "split_seed": 42,
+      "validation_fraction": 0.15,
+      "source_paths": {
+        "train": "Database\\Restaurant3\\train.xml",
+        "validation": null,
+        "test": "Database\\Restaurant3\\test.xml"
+      },
+      "sources": {
+        "train": {
+          "sentences": 3041,
+          "unique_span_label_counts": {
+            "negative": 805,
+            "positive": 2164,
+            "neutral": 633
+          },
+          "sentences_with_overlapping_spans": 0,
+          "overlap_examples": [],
+          "sha256": "a13ea5b57ef25ff0ade2f6a39789d181bc088b9bf936014487edea2d2373a856"
+        },
+        "test": {
+          "sentences": 800,
+          "unique_span_label_counts": {
+            "positive": 728,
+            "neutral": 196,
+            "negative": 196
+          },
+          "sentences_with_overlapping_spans": 0,
+          "overlap_examples": [],
+          "sha256": "44dbba8c29f3e53ddb2890b023beaefa7b8e163ff9dc17ed3b6e520f14c3c282"
+        }
+      },
+      "status": "current_split_reproduced",
+      "splits": {
+        "train": {
+          "sentences": 2745,
+          "unique_texts": 2739,
+          "targets": 3046,
+          "label_counts": {
+            "negative": 677,
+            "neutral": 520,
+            "positive": 1849
+          },
+          "neutral_with_polar_neighbor": 236,
+          "neutral_without_polar_neighbor": 284,
+          "neutral_with_both_polarities": 19,
+          "neutral_single_aspect": 144,
+          "neutral_recall_step": 0.0019230769230769232
+        },
+        "validation": {
+          "sentences": 295,
+          "unique_texts": 295,
+          "targets": 555,
+          "label_counts": {
+            "negative": 128,
+            "neutral": 113,
+            "positive": 314
+          },
+          "neutral_with_polar_neighbor": 52,
+          "neutral_without_polar_neighbor": 61,
+          "neutral_with_both_polarities": 6,
+          "neutral_single_aspect": 29,
+          "neutral_recall_step": 0.008849557522123894
+        },
+        "test": {
+          "sentences": 800,
+          "unique_texts": 800,
+          "targets": 1120,
+          "label_counts": {
+            "negative": 196,
+            "neutral": 196,
+            "positive": 728
+          },
+          "neutral_with_polar_neighbor": 83,
+          "neutral_without_polar_neighbor": 113,
+          "neutral_with_both_polarities": 1,
+          "neutral_single_aspect": 41,
+          "neutral_recall_step": 0.00510204081632653
+        }
+      },
+      "training_split_audit": {
+        "removed_test_duplicate_sentences": {
+          "train": 0,
+          "validation": 1
+        },
+        "training_sentiment_counts": {
+          "negative": 677,
+          "positive": 1849,
+          "neutral": 520
+        }
+      },
+      "exact_text_overlap": {
+        "train_validation": 0,
+        "train_test": 0,
+        "validation_test": 0
+      },
+      "shared_review_ids": null
+    },
+    {
+      "dataset": "restaurant2015",
+      "split_seed": 42,
+      "validation_fraction": 0.15,
+      "source_paths": {
+        "train": "Database\\Restaurant2015\\train.xml",
+        "validation": null,
+        "test": "Database\\Restaurant2015\\test.xml"
+      },
+      "sources": {
+        "train": {
+          "sentences": 1275,
+          "unique_span_label_counts": {
+            "negative": 252,
+            "positive": 902,
+            "neutral": 34
+          },
+          "sentences_with_overlapping_spans": 0,
+          "overlap_examples": [],
+          "sha256": "33d226e1483d4f04aa50089c15cf9b626d5c44478790930edbdf9d74fedf7ed3"
+        },
+        "test": {
+          "sentences": 663,
+          "unique_span_label_counts": {
+            "positive": 319,
+            "negative": 179,
+            "neutral": 27
+          },
+          "sentences_with_overlapping_spans": 0,
+          "overlap_examples": [],
+          "sha256": "7388baa1db249e493eeb66b885c2d9635607c3930ac0ec94ed987caddcd455e4"
+        }
+      },
+      "status": "current_split_reproduced",
+      "splits": {
+        "train": {
+          "sentences": 1149,
+          "unique_texts": 1147,
+          "targets": 1024,
+          "label_counts": {
+            "negative": 216,
+            "neutral": 31,
+            "positive": 777
+          },
+          "neutral_with_polar_neighbor": 10,
+          "neutral_without_polar_neighbor": 21,
+          "neutral_with_both_polarities": 1,
+          "neutral_single_aspect": 19,
+          "neutral_recall_step": 0.03225806451612903
+        },
+        "validation": {
+          "sentences": 124,
+          "unique_texts": 124,
+          "targets": 164,
+          "label_counts": {
+            "negative": 36,
+            "neutral": 3,
+            "positive": 125
+          },
+          "neutral_with_polar_neighbor": 0,
+          "neutral_without_polar_neighbor": 3,
+          "neutral_with_both_polarities": 0,
+          "neutral_single_aspect": 3,
+          "neutral_recall_step": 0.3333333333333333
+        },
+        "test": {
+          "sentences": 663,
+          "unique_texts": 662,
+          "targets": 525,
+          "label_counts": {
+            "negative": 179,
+            "neutral": 27,
+            "positive": 319
+          },
+          "neutral_with_polar_neighbor": 11,
+          "neutral_without_polar_neighbor": 16,
+          "neutral_with_both_polarities": 0,
+          "neutral_single_aspect": 16,
+          "neutral_recall_step": 0.037037037037037035
+        }
+      },
+      "training_split_audit": {
+        "removed_test_duplicate_sentences": {
+          "train": 2,
+          "validation": 0
+        },
+        "training_sentiment_counts": {
+          "negative": 216,
+          "positive": 777,
+          "neutral": 31
+        }
+      },
+      "exact_text_overlap": {
+        "train_validation": 0,
+        "train_test": 0,
+        "validation_test": 0
+      },
+      "shared_review_ids": {
+        "train_validation": 102,
+        "train_test": 0,
+        "validation_test": 0
+      }
+    },
+    {
+      "dataset": "restaurant2016",
+      "split_seed": 42,
+      "validation_fraction": 0.15,
+      "source_paths": {
+        "train": "Database\\Restaurant2016\\train.xml",
+        "validation": null,
+        "test": "Database\\Restaurant2016\\test.xml"
+      },
+      "sources": {
+        "train": {
+          "sentences": 1937,
+          "unique_span_label_counts": {
+            "negative": 433,
+            "positive": 1220,
+            "neutral": 61
+          },
+          "sentences_with_overlapping_spans": 0,
+          "overlap_examples": [],
+          "sha256": "e9d2351e4f192fe8817a8a8c916d12c03c0e2ccf163b545a3f8cc041dc1a9404"
+        },
+        "test": {
+          "sentences": 642,
+          "unique_span_label_counts": {
+            "positive": 460,
+            "neutral": 28,
+            "negative": 113
+          },
+          "sentences_with_overlapping_spans": 0,
+          "overlap_examples": [],
+          "sha256": "f7d7c835a4a58391478a85402253db1e480c3c29a7b1634641b16bbf6ddd91c2"
+        }
+      },
+      "status": "current_split_reproduced",
+      "splits": {
+        "train": {
+          "sentences": 1754,
+          "unique_texts": 1749,
+          "targets": 1446,
+          "label_counts": {
+            "negative": 366,
+            "neutral": 52,
+            "positive": 1028
+          },
+          "neutral_with_polar_neighbor": 20,
+          "neutral_without_polar_neighbor": 32,
+          "neutral_with_both_polarities": 1,
+          "neutral_single_aspect": 30,
+          "neutral_recall_step": 0.019230769230769232
+        },
+        "validation": {
+          "sentences": 182,
+          "unique_texts": 182,
+          "targets": 267,
+          "label_counts": {
+            "negative": 67,
+            "neutral": 9,
+            "positive": 191
+          },
+          "neutral_with_polar_neighbor": 1,
+          "neutral_without_polar_neighbor": 8,
+          "neutral_with_both_polarities": 0,
+          "neutral_single_aspect": 8,
+          "neutral_recall_step": 0.1111111111111111
+        },
+        "test": {
+          "sentences": 642,
+          "unique_texts": 641,
+          "targets": 601,
+          "label_counts": {
+            "negative": 113,
+            "neutral": 28,
+            "positive": 460
+          },
+          "neutral_with_polar_neighbor": 5,
+          "neutral_without_polar_neighbor": 23,
+          "neutral_with_both_polarities": 1,
+          "neutral_single_aspect": 19,
+          "neutral_recall_step": 0.03571428571428571
+        }
+      },
+      "training_split_audit": {
+        "removed_test_duplicate_sentences": {
+          "train": 1,
+          "validation": 0
+        },
+        "training_sentiment_counts": {
+          "negative": 366,
+          "positive": 1028,
+          "neutral": 52
+        }
+      },
+      "exact_text_overlap": {
+        "train_validation": 0,
+        "train_test": 0,
+        "validation_test": 0
+      },
+      "shared_review_ids": {
+        "train_validation": 136,
+        "train_test": 0,
+        "validation_test": 0
+      }
+    },
+    {
+      "dataset": "mams",
+      "split_seed": 42,
+      "validation_fraction": 0.15,
+      "source_paths": {
+        "train": "Database\\MAMS\\data\\MAMS-ATSA\\raw\\train.xml",
+        "validation": "Database\\MAMS\\data\\MAMS-ATSA\\raw\\val.xml",
+        "test": "Database\\MAMS\\data\\MAMS-ATSA\\raw\\test.xml"
+      },
+      "sources": {
+        "train": {
+          "sentences": 4297,
+          "unique_span_label_counts": {
+            "negative": 2764,
+            "positive": 3380,
+            "neutral": 5042
+          },
+          "sentences_with_overlapping_spans": 8,
+          "overlap_examples": [
+            {
+              "sentence_id": "",
+              "text": "My party of 8 had a seafood feast sampling Sammy's menu and we couldn't believe how great the food was.",
+              "left": {
+                "start": 20,
+                "end": 27,
+                "aspect": "seafood",
+                "label": "neutral"
+              },
+              "right": {
+                "start": 23,
+                "end": 27,
+                "aspect": "food",
+                "label": "positive"
+              }
+            },
+            {
+              "sentence_id": "",
+              "text": "I liked the beer selection!",
+              "left": {
+                "start": 12,
+                "end": 18,
+                "aspect": "beer s",
+                "label": "neutral"
+              },
+              "right": {
+                "start": 12,
+                "end": 26,
+                "aspect": "beer selection",
+                "label": "positive"
+              }
+            },
+            {
+              "sentence_id": "",
+              "text": "No table space and one of the angry neighbors decided to take matters into his own hands by throwing a bucket of water out his window and onto the patrons waiting for their tables.",
+              "left": {
+                "start": 3,
+                "end": 10,
+                "aspect": "table s",
+                "label": "neutral"
+              },
+              "right": {
+                "start": 3,
+                "end": 14,
+                "aspect": "table space",
+                "label": "negative"
+              }
+            },
+            {
+              "sentence_id": "",
+              "text": "I tried the Crab Croquettes (delicious, and yes, the sauce IS hot) and the Salade Jumelle (a good, basic mesculen salad).",
+              "left": {
+                "start": 75,
+                "end": 80,
+                "aspect": "Salad",
+                "label": "positive"
+              },
+              "right": {
+                "start": 75,
+                "end": 81,
+                "aspect": "Salade",
+                "label": "neutral"
+              }
+            },
+            {
+              "sentence_id": "",
+              "text": "The appetizer, conch fritas was yummy; entree, spicy shrimp with coconut rice (just a hint of coconut - not overwhelming); and the dessert tres leches de mango with calle ocho cafe was unbelievable!",
+              "left": {
+                "start": 47,
+                "end": 77,
+                "aspect": "spicy shrimp with coconut rice",
+                "label": "neutral"
+              },
+              "right": {
+                "start": 65,
+                "end": 72,
+                "aspect": "coconut",
+                "label": "neutral"
+              }
+            }
+          ],
+          "sha256": "26ba39142b28169ebc80408294f4e27493bd1e127c6aa2e85ab4bc750bf8017a"
+        },
+        "validation": {
+          "sentences": 500,
+          "unique_span_label_counts": {
+            "neutral": 604,
+            "positive": 403,
+            "negative": 325
+          },
+          "sentences_with_overlapping_spans": 0,
+          "overlap_examples": [],
+          "sha256": "5b7d225e2f9482a3814f15aed04ff8323105171a47d22d9899d871c4e0ba86ca"
+        },
+        "test": {
+          "sentences": 500,
+          "unique_span_label_counts": {
+            "neutral": 607,
+            "positive": 400,
+            "negative": 329
+          },
+          "sentences_with_overlapping_spans": 0,
+          "overlap_examples": [],
+          "sha256": "f1a5f53b785335e9c57a1f82b1415026f821040b9e9662a2e467d47a54f20aa9"
+        }
+      },
+      "status": "blocked_by_current_reader_or_data",
+      "error": "BIO head cannot represent overlapping annotated aspects"
+    }
+  ],
+  "limits": [
+    "Uses current prepare_splits behavior; historical runs may use another seed or protocol.",
+    "Shared review IDs describe review dependence, not measured metric inflation.",
+    "No gold labels are changed and no hyperparameter is selected using test labels."
+  ]
+}

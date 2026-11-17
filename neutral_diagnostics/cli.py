@@ -215,6 +215,13 @@ def main():
     comparison = commands.add_parser("compare", help="Export comparable runs, mean/std and validation-test gaps")
     comparison.add_argument("--analyses", nargs="+", required=True)
     comparison.add_argument("--output", required=True)
+    audit = commands.add_parser("audit-data", help="Audit real label support, reader failures and current split dependence")
+    audit.add_argument("--datasets", nargs="+", choices=["restaurant", "restaurant2015", "restaurant2016", "mams"],
+                       default=["restaurant", "restaurant2015", "restaurant2016", "mams"])
+    audit.add_argument("--data-root", default="Database")
+    audit.add_argument("--split-seed", type=int, default=42)
+    audit.add_argument("--validation-fraction", type=float, default=.15)
+    audit.add_argument("--output", required=True)
     validation = commands.add_parser("validate-pairs", help="Validate offsets, minimal changes and review status")
     validation.add_argument("--pairs", default="data/diagnostics/neutral_scope_pairs.csv")
     prediction = commands.add_parser("predict-pairs", help="Evaluate a local trained baseline/pair/joint checkpoint")
@@ -232,6 +239,9 @@ def main():
             analyze(args)
         elif args.command == "compare":
             compare(args)
+        elif args.command == "audit-data":
+            from .data_audit import audit_data
+            audit_data(args)
         else:
             from .pairs import read_pairs, predict_pairs
             if args.command == "validate-pairs":

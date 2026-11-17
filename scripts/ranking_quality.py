@@ -1,7 +1,8 @@
 """Ranking quality (neutral AP and best-threshold F1) per configuration and seed.
 
-AP and the best achievable F1 depend only on the score ordering, so they separate
-"better ranking" from "better calibrated decision boundary".
+AP and the in-sample maximum F1 describe this fixed probability-score ordering.
+The latter uses test labels and is diagnostic only, not a deployable score or a
+dataset ceiling. Neutral logit offsets use a different margin score ordering.
 """
 import json
 from pathlib import Path

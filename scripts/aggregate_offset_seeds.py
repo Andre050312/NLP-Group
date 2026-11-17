@@ -4,6 +4,7 @@ Reads only the saved reports from `tune_neutral_offset.py`; no model runs.
 """
 import json
 import statistics
+from evaluation_stats import common_seeds, sign_test
 
 CONFIGS = {"control": "runs/offset_control.json", "no_cls": "runs/offset_nocls.json"}
 SHORT = {"control": "control", "no_cls": "no-cls"}
@@ -22,8 +23,9 @@ for config, path in CONFIGS.items():
             "bootstrap": entry.get("bootstrap_vs_offset_1", {}),
         }
 
-seeds = sorted({seed for (_, seed) in table})
-configs = [c for c in CONFIGS if all((c, s) in table for s in seeds)]
+configs = list(CONFIGS)
+seeds = common_seeds([{s for c, s in table if c == config} for config in configs])
+print(f"Paired comparison uses shared seeds only: {seeds}")
 
 print(f"{'config':8s} {'seed':>4s} {'k':>4s} {'test macro':>17s} {'test neutralF1':>17s}")
 for config in configs:
@@ -61,9 +63,7 @@ if len(configs) == 2:
     t = mean / (std / len(deltas) ** 0.5) if std else float("inf")
     print(f"  neutral_f1  " + " ".join(f"{d:+.4f}" for d in deltas) +
           f" | mean {mean:+.4f} ± {std:.4f} | t={t:+.2f}")
-    positive = sum(1 for seed in seeds
-                   if table[("no_cls", seed)]["tuned"]["macro_f1"] > table[("control", seed)]["tuned"]["macro_f1"])
-    tail = sum(comb(len(seeds), k) for k in range(max(positive, len(seeds) - positive), len(seeds) + 1))
-    print(f"  macro-F1 sign test: {positive}/{len(seeds)} positive, exact two-sided "
-          f"p={min(1.0, 2 * tail / 2 ** len(seeds)):.4f}")
+    signs = sign_test([table[("no_cls", s)]["tuned"]["macro_f1"] -
+                       table[("control", s)]["tuned"]["macro_f1"] for s in seeds])
+    print(f"  macro-F1 sign test (ties excluded, conditional on this test set): {signs}")
     print(f"\n  |t| must exceed {critical} for p<.05 with {len(seeds)} paired seeds.")

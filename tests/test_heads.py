@@ -23,6 +23,7 @@ class HeadTests(unittest.TestCase):
     def test_output_dimension_per_head(self):
         self.assertEqual(output_dim("softmax"), 3)
         self.assertEqual(output_dim("ordinal"), 2)
+        self.assertEqual(output_dim("ordered"), 2)
         self.assertEqual(output_dim("gate"), 3)
         with self.assertRaises(ValueError):
             output_dim("unknown")
@@ -50,6 +51,18 @@ class HeadTests(unittest.TestCase):
         self.assertGreater(values[0, 1].item(), 0.99)
         strong = torch.tensor([[8.0, 9.0, -9.0]])
         self.assertGreater(probabilities("gate", strong)[0, 0].item(), 0.99)
+
+    def test_ordered_training_thresholds_match_inference(self):
+        logits = torch.tensor([[1.3862944, -0.2727277], [-2.0, 3.0]])
+        q = heads.ordered_logits(logits).sigmoid()
+        p = probabilities("ordered", logits)
+        self.assertTrue(torch.allclose(p[:, 1:].sum(-1), q[:, 0], atol=1e-6))
+        self.assertTrue(torch.allclose(p[:, 2], q[:, 1], atol=1e-6))
+        self.assertTrue(torch.all(q[:, 0] >= q[:, 1]))
+        labels = torch.tensor([1, 2])
+        target = torch.tensor([[1., 0.], [1., 1.]])
+        expected = torch.nn.functional.binary_cross_entropy_with_logits(heads.ordered_logits(logits), target)
+        self.assertTrue(torch.allclose(loss("ordered", logits, labels, smoothing=0), expected))
 
     def test_loss_is_finite_differentiable_and_gradiented(self):
         labels = torch.tensor([0, 1, 2, 1, 0, 2])

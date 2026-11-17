@@ -2,6 +2,8 @@
 
 项目仅保留餐厅领域的 negative（负面）、neutral（中性）、positive（正面）数据。支持 BERT 基线、DeBERTa 联合模型和 DeBERTa 方面条件句对模型。标签是针对评价对象的方面级情感，不是整句标签。
 
+报告审阅稿：[Word](reports/Group_9_ABSA_Report_Review.docx) · [正文](docs/report_draft.md) · [证据复核与修改记录](docs/report_review/README.md)。旧 ordinal 实验存在训练/推理不一致；使用新 `ordered` 配置需重新训练，不能继承旧成绩。报告中实验成绩来自小组记录，本次未重新训练。
+
 ## 1. 创建并激活环境
 
 安装 Miniconda 或 Anaconda，打开支持 conda 的 PowerShell：
@@ -156,12 +158,14 @@ python -m absa_enhanced train --mode pair --dataset mams --output runs/pair_mams
 | 取值 | 输出 | 训练目标 | 说明 |
 |---|---|---|---|
 | `softmax`（默认） | 3 类 logits | 交叉熵 | 原基线，旧 checkpoint 全部兼容 |
-| `ordinal` | 2 个累积 logits | 两个二分类 BCE | 负 < 中 < 正；中性是极性之间的"带"（CORAL） |
+| `ordinal` | 2 个旧版输出 | 历史 BCE | 仅保留旧 checkpoint 行为；训练与推理解释不一致，不是 CORAL，不用于方法比较结论 |
+| `ordered` | 2 个有序累积 logits | 匹配累积概率的 BCE | 独立新配置，需要重新训练；尚无基准成绩，也不是标准 CORAL 复现 |
 | `gate` | 1 个"有无观点" + 2 个极性 logits | BCE + 二分类 CE | 先判该方面有没有观点，再判极性；中性 = 无观点 |
 
 概率都归一到和为 1，标签顺序固定 negative/neutral/positive：
 
-- `ordinal`：p₀=σ(l₀)、p₁=σ(l₀+l₁)，P(neg)=1−p₀、P(neutral)=p₀(1−p₁)、P(pos)=p₀p₁。
+- `ordinal`（历史行为）：p₀=σ(l₀)、p₁=σ(l₀+l₁)，P(neg)=1−p₀、P(neutral)=p₀(1−p₁)、P(pos)=p₀p₁。训练把两个值当作无条件累积概率，推理却作条件乘积，因此旧成绩不能说明序数分类无效。
+- `ordered`：q₀=σ(l₀)、q₁=σ(l₀−softplus(l₁))；P(neg)=1−q₀、P(neutral)=q₀−q₁、P(pos)=q₁。训练和推理使用同一累积解释，且 q₁≤q₀。
 - `gate`：P(neutral)=1−σ(l₀)，P(neg)=σ(l₀)·softmax(l₁:)[neg]，P(pos)=σ(l₀)·softmax(l₁:)[pos]。
 
 ### 上下文范围 `--context-scope`（仅 pair 模式）

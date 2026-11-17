@@ -78,8 +78,8 @@ for name in CONFIGS:
     print(f"{name:9s} n={len(subset)} | " + " | ".join(parts))
 
 both = [name for name in CONFIGS if len({s for (n, s) in rows if n == name}) >= 2]
-if len(both) == 2 and len({seed for (n, seed) in rows if n == both[0]}) == len({seed for (n, seed) in rows if n == both[1]}):
-    seeds = sorted({seed for (_, seed) in rows})
+if len(both) == 2 and {seed for (n, seed) in rows if n == both[0]} == {seed for (n, seed) in rows if n == both[1]}:
+    seeds = sorted({seed for (n, seed) in rows if n == both[0]})
     critical = T_CRITICAL.get(len(seeds), 2.57)
     print(f"\nper-seed difference (no_cls - control), n={len(seeds)}:")
     for key in ("macro_f1", "neutral_f1", "accuracy"):
@@ -88,12 +88,9 @@ if len(both) == 2 and len({seed for (n, seed) in rows if n == both[0]}) == len({
         t = mean / (std / len(deltas) ** 0.5) if std else float("inf")
         print(f"  {key:11s} " + " ".join(f"{d:+.4f}" for d in deltas) +
               f" | mean {mean:+.4f} ± {std:.4f} | paired t={t:+.2f}")
-    positives = sum(1 for seed in seeds if rows[("no_cls", seed)]["macro_f1"] > rows[("control", seed)]["macro_f1"])
-    # Exact two-sided sign test: 2 * P(X >= k) under Binomial(n, 1/2).
-    from math import comb
-    tail = sum(comb(len(seeds), k) for k in range(max(positives, len(seeds) - positives), len(seeds) + 1))
-    sign_p = min(1.0, 2 * tail / 2 ** len(seeds))
+    from evaluation_stats import sign_test
+    signs = sign_test([rows[("no_cls", s)]["macro_f1"] - rows[("control", s)]["macro_f1"] for s in seeds])
     print(f"\n  paired t with {len(seeds)} seeds needs |t| > {critical} for p<.05")
-    print(f"  macro-F1 sign test: {positives}/{len(seeds)} seeds positive, exact two-sided p={sign_p:.4f}")
+    print(f"  macro-F1 sign test (ties excluded, conditional on this test set): {signs}")
 else:
     print("\nPaired per-seed comparison needs the same seed set for both configurations.")

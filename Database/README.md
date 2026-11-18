@@ -1,6 +1,8 @@
-# 餐厅三分类数据集合
+# 餐厅方面级情感数据集合
 
-本目录只保留餐厅领域的 positive、neutral、negative 三分类数据。所有文件均为方面级情感，不是整句情感标签。
+本目录默认使用餐厅领域的 positive、neutral、negative 三分类数据。所有文件均为方面级情感，不是整句情感标签。
+显式四分类使用独立的 [Restaurant4](Restaurant4/README.md)，保留 SemEval-2014 的 conflict；
+下面三类统计与数据保持不变。默认三类 downloader 不管理 Restaurant4。
 
 | 目录 | 类型 | 训练方面目标 | 验证方面目标 | 测试方面目标 |
 |---|---|---:|---:|---:|

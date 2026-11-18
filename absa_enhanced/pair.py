@@ -6,6 +6,7 @@ from torch import nn
 from torch.utils.data import Dataset
 
 from .data import SENTIMENTS, align_span, trim_span
+from .labels import sentiment_labels
 from .model import JointABSA
 from . import heads
 
@@ -60,7 +61,8 @@ def token_range(offsets, char_start, char_end):
 
 class PairDataset(Dataset):
     """One training row per gold aspect; no implicit extraction supervision."""
-    def __init__(self, documents, tokenizer, max_length=192, stride=None, scope="sentence"):
+    def __init__(self, documents, tokenizer, max_length=192, stride=None, scope="sentence", labels=SENTIMENTS):
+        self.labels = sentiment_labels(labels)
         if not tokenizer.is_fast:
             raise ValueError("PairDataset requires a fast tokenizer")
         if scope not in ("sentence", "clause"):
@@ -72,7 +74,7 @@ class PairDataset(Dataset):
             encoded = tokenizer(document.text, add_special_tokens=False, return_offsets_mapping=True)
             full_ids, offsets = encoded["input_ids"], encoded["offset_mapping"]
             for aspect in document.aspects:
-                if aspect.label not in SENTIMENTS:
+                if aspect.label not in self.labels:
                     continue
                 targets += 1
                 text = document.text[aspect.start:aspect.end]
@@ -112,7 +114,7 @@ class PairDataset(Dataset):
                     non_exact.append({"sentence_id": document.uid, "aspect": text,
                                       "start": aspect.start, "end": aspect.end,
                                       "covering_token_text": document.text[covering[0]:covering[1]]})
-                label = SENTIMENTS.index(aspect.label)
+                label = self.labels.index(aspect.label)
                 self.rows.append({"inputs": inputs, "valid": query_mask, "bio": [-100] * len(input_ids),
                                   "targets": [(start_token, end_token, label, aspect.start, aspect.end)],
                                   "doc_index": doc_index})
@@ -120,7 +122,7 @@ class PairDataset(Dataset):
                                 "non_exact_examples": non_exact[:10], "cropped_contexts": cropped,
                                 "clause_narrowed_contexts": narrowed, "context_scope": scope}
         if not self.rows:
-            raise ValueError("Pair dataset has no three-class aspect targets")
+            raise ValueError(f"Pair dataset has no aspect targets in configured labels {self.labels}")
 
     def __len__(self):
         return len(self.rows)
@@ -133,8 +135,10 @@ class PairABSA(JointABSA):
     """The target participates in every encoder layer through the second sequence."""
     model_kind = "pair"
 
-    def __init__(self, encoder, dropout=0.15, use_cls=True, sentiment_head="softmax"):
+    def __init__(self, encoder, dropout=0.15, use_cls=True, sentiment_head="softmax", labels=SENTIMENTS):
         nn.Module.__init__(self)
+        self.labels = sentiment_labels(labels)
+        self.num_classes = len(self.labels)
         self.encoder = encoder
         self.local_radius, self.fusion, self.dropout_rate = 0, False, dropout
         self.use_cls = use_cls
@@ -143,7 +147,7 @@ class PairABSA(JointABSA):
         features = hidden * (2 + int(use_cls))
         self.sentiment = nn.Sequential(nn.LayerNorm(features), nn.Dropout(dropout),
                                        nn.Linear(features, 256), nn.GELU(),
-                                       nn.Dropout(dropout), nn.Linear(256, heads.output_dim(sentiment_head)))
+                                       nn.Dropout(dropout), nn.Linear(256, heads.output_dim(sentiment_head, self.num_classes)))
 
     def encode(self, inputs):
         hidden = self.encoder(**inputs, return_dict=True).last_hidden_state
@@ -152,7 +156,7 @@ class PairABSA(JointABSA):
 
     def classify(self, hidden, query_mask, spans):
         if not len(spans):
-            return hidden.new_empty((0, 3))
+            return hidden.new_empty((0, heads.output_dim(self.sentiment_head, self.num_classes)))
         batch, starts, ends = spans.unbind(-1)
         positions = torch.arange(hidden.shape[1], device=hidden.device).unsqueeze(0)
         target_mask = (positions >= starts[:, None]) & (positions < ends[:, None])

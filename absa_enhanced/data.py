@@ -7,6 +7,7 @@ import torch
 from torch.utils.data import Dataset
 
 from bert_baseline.data import LABELS, read_xml, split_train_validation
+from .labels import sentiment_labels
 
 SENTIMENTS = LABELS[:3]
 BIO = ("O", "B-ASP", "I-ASP")
@@ -59,18 +60,19 @@ def read_documents(path):
     return documents
 
 
-def prepare_splits(train_path, validation_path=None, test_path=None, fraction=0.15, seed=42):
+def prepare_splits(train_path, validation_path=None, test_path=None, fraction=0.15, seed=42, labels=SENTIMENTS):
+    labels = sentiment_labels(labels)
     train = read_documents(train_path)
     if validation_path:
         validation = read_documents(validation_path)
     else:
         # Match the original baseline's validation text selection exactly.
-        examples, _ = read_xml(train_path)
+        examples, _ = read_xml(train_path, include_conflict="conflict" in labels)
         _, val_examples = split_train_validation(examples, fraction, seed)
         validation_texts = {x.text for x in val_examples}
         validation = [d for d in train if d.text in validation_texts]
         train = [d for d in train if d.text not in validation_texts]
-        # Sentences with no three-class targets remain in training as extraction data.
+        # Sentences without configured sentiment targets remain as extraction data.
     test = read_documents(test_path) if test_path else None
     removed = {}
     if test is not None:
@@ -83,9 +85,10 @@ def prepare_splits(train_path, validation_path=None, test_path=None, fraction=0.
         raise ValueError("Empty training/validation set")
     if {d.text for d in train} & {d.text for d in validation}:
         raise ValueError("Training/validation contain identical texts")
-    counts = Counter(a.label for d in train for a in d.aspects if a.label in SENTIMENTS)
-    if set(counts) != set(SENTIMENTS):
-        raise ValueError(f"Missing training sentiment class: {dict(counts)}")
+    counts = Counter(a.label for d in train for a in d.aspects if a.label in labels)
+    if set(counts) != set(labels):
+        raise ValueError(f"Missing training sentiment class for {labels}: {dict(counts)}; "
+                         "four-class SemEval data must retain conflict (use Restaurant4)")
     return train, validation, test, {"removed_test_duplicate_sentences": removed,
                                    "training_sentiment_counts": dict(counts)}
 
@@ -109,7 +112,8 @@ def align_span(offsets, start, end):
 
 
 class WindowDataset(Dataset):
-    def __init__(self, documents, tokenizer, max_length=192, stride=64):
+    def __init__(self, documents, tokenizer, max_length=192, stride=64, labels=SENTIMENTS):
+        self.labels = sentiment_labels(labels)
         if not tokenizer.is_fast:
             raise ValueError("A fast tokenizer with character offsets is required")
         if max_length < 8 or not 0 <= stride < max_length - tokenizer.num_special_tokens_to_add():
@@ -151,8 +155,8 @@ class WindowDataset(Dataset):
                             "sentence_id": document.uid, "start": aspect.start, "end": aspect.end,
                             "aspect": document.text[aspect.start:aspect.end],
                             "covering_token_text": document.text[predicted_span[0]:predicted_span[1]]}
-                    if aspect.label in SENTIMENTS:
-                        targets.append((positions[0], positions[-1] + 1, SENTIMENTS.index(aspect.label),
+                    if aspect.label in self.labels:
+                        targets.append((positions[0], positions[-1] + 1, self.labels.index(aspect.label),
                                         aspect.start, aspect.end))
                 for pos in ignored_bio_positions:
                     bio[pos] = -100

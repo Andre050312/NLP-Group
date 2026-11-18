@@ -1,6 +1,78 @@
 # 餐厅三分类情感分析：Windows 运行指南
 
-项目仅保留餐厅领域的 negative（负面）、neutral（中性）、positive（正面）数据。支持 BERT 基线、DeBERTa 联合模型和 DeBERTa 方面条件句对模型。标签是针对评价对象的方面级情感，不是整句标签。
+项目默认使用餐厅领域的 negative（负面）、neutral（中性）、positive（正面）三分类。另可显式启用 SemEval-2014 四分类，保留 conflict（同一方面同时有正面与负面观点）。支持 BERT 基线、DeBERTa 联合模型和 DeBERTa 方面条件句对模型。标签是针对评价对象的方面级情感，不是整句标签。
+
+## SemEval 2014 四分类
+
+三分类仍是默认配置，现有报告与三类成绩不变。四类顺序固定为
+`negative, neutral, positive, conflict`，与 `bert_baseline.data.LABELS` 一致；
+neutral 下标仍为 1，conflict 不会合并进 neutral。
+
+四分类使用独立的 `Database/Restaurant4`。已提供 XML、逐方面 JSONL 和带源版本、
+SHA256、句子数、方面数、各类数量的 manifest：
+
+| 划分 | 句子记录 | 方面目标 | negative | neutral | positive | conflict |
+|---|---:|---:|---:|---:|---:|---:|
+| train | 3041 | 3693 | 805 | 633 | 2164 | 91 |
+| test | 800 | 1134 | 196 | 196 | 728 | 14 |
+
+这些是数据计数，**不是四分类模型的实验成绩**。`Restaurant3` 及三类派生数据不改写。
+四分类数据不会由默认三分类 downloader 恢复；需要重新导出时，选择一个不存在的新目录：
+
+```powershell
+# 只下载两个锁定版本的原始 XML，并核验 checksum；不下载模型
+python scripts/prepare_restaurant4.py --download --output Database/Restaurant4_new
+
+# 原始四类 XML 已在本机时可完全离线导出；不要用已删 conflict 的 Restaurant3 当源
+python scripts/prepare_restaurant4.py --train-source PATH/Restaurants_Train_v2.xml --test-source PATH/Restaurants_Test_Gold.xml --output Database/Restaurant4_new
+```
+
+导出器拒绝覆盖已有目录，也拒绝写进 Restaurant3。默认下载、三类格式转换和三类 ZIP 行为不变。
+
+以下是供之后正式实验使用的命令示例，**本实现任务没有执行完整训练**：
+
+```powershell
+# 句对四分类：仍然使用 CLS、目标词均值、方面词查询均值，只有 softmax 输出改为 4
+python -m absa_enhanced train --mode pair --dataset restaurant --labels four --sentiment-head softmax --output runs/pair_four_s42 --seed 42 --split-seed 42
+
+# 联合模型同样支持，BIO 抽取头仍为 O/B-ASP/I-ASP 三种标签
+python -m absa_enhanced train --mode joint --dataset restaurant --labels four --sentiment-head softmax --output runs/joint_four_s42 --seed 42 --split-seed 42
+
+# 只生成四类 CV 折分，不下载 tokenizer 或模型、不训练
+python -m absa_enhanced cross-validate --mode pair --dataset restaurant --labels four --folds 3 --plan-only --output runs/cv_four_plan
+
+# evaluate 和 predict 自动读取 checkpoint 的 settings.json 标签轴，不重新指定 --labels
+python -m absa_enhanced evaluate --checkpoint runs/pair_four_s42/best --test Database/Restaurant4/test.xml --output runs/eval_pair_four
+python -m absa_enhanced predict --checkpoint runs/pair_four_s42/best --text "food is good and bad" --aspect food
+```
+
+省略 `--labels` 或指定 `--labels three` 时仍用 Restaurant3 和三维 softmax。
+四分类只允许 softmax；与 `gate`、`ordinal`、`ordered` 同时指定会在载入编码器前退出，
+因为这些头假定三类，不能表示 conflict。`ordered` 是单独命名的一致累积头；旧
+`ordinal` 为兼容历史 checkpoint 保留旧行为，不应描述成 CORAL 复现。
+
+旧三类 checkpoint 不会升级为四类。每个新 checkpoint 写入真实 labels，加载时按
+该列表建模并严格验证权重形状，三维/四维不匹配立即报错。四分类必须重新训练。
+`gold_aspect_sentiment.per_class` 包含四类各自的 P/R/F1/support；conflict 测试
+支持数只有 14，应单独说明，不以单个 F1 作稳健结论。
+
+`--neutral-offset` 在四类下使用 `[1, offset, 1, 1]`。
+`scripts/tune_neutral_offset.py` 和 `scripts/cv_offset.py` 从预测文件的
+`label_order`/probabilities 类别轴识别三类或四类，并拒绝验证、测试、折间轴不一致。
+`fixed_offset_check.py` 与 `offset_validation_size.py` 复用该逻辑。旧三类预测仍按三类计算。
+原来的 `neutral_diagnostics` 人工对照分析仍专用于三类，不应直接用四类 checkpoint 生成其旧表。
+
+四分类的测试目标数、标签轴和 Macro-F1 定义均不同，**不能直接与现有三类结果表比较**，
+也没有新增任何四分类 benchmark 分数。回归检查只使用本机随机初始化的微型 BERT 和 CPU：
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+2026-11-18 验证：上述完整测试集 **101 项全部通过**（271.991 秒）。微型模型测试
+覆盖四类 pair/joint 的 CPU 训练、保存、重载、评估和预测，以及旧三类回归。
+真实 Restaurant4 的三折 `--plan-only` 也通过，各折训练/验证/留出均含 conflict，
+未加载 tokenizer 或模型、未创建训练 run 目录。这些检查不构成四分类 benchmark 成绩。
 
 ## 1. 创建并激活环境
 
@@ -153,15 +225,19 @@ python -m absa_enhanced train --mode pair --dataset mams --output runs/pair_mams
 
 ### 情感头 `--sentiment-head`
 
+gate、ordinal、ordered 仅支持 `--labels three`；四分类只能用 softmax。
+
 | 取值 | 输出 | 训练目标 | 说明 |
 |---|---|---|---|
 | `softmax`（默认） | 3 类 logits | 交叉熵 | 原基线，旧 checkpoint 全部兼容 |
-| `ordinal` | 2 个累积 logits | 两个二分类 BCE | 负 < 中 < 正；中性是极性之间的"带"（CORAL） |
+| `ordinal` | 2 个旧版输出 | 历史 BCE | 仅兼容旧 checkpoint；训练与推理解释不一致，不是 CORAL |
+| `ordered` | 2 个有序累积 logits | 匹配的累积 BCE | 单独命名的三分类配置，无已报告 benchmark 成绩 |
 | `gate` | 1 个"有无观点" + 2 个极性 logits | BCE + 二分类 CE | 先判该方面有没有观点，再判极性；中性 = 无观点 |
 
 概率都归一到和为 1，标签顺序固定 negative/neutral/positive：
 
-- `ordinal`：p₀=σ(l₀)、p₁=σ(l₀+l₁)，P(neg)=1−p₀、P(neutral)=p₀(1−p₁)、P(pos)=p₀p₁。
+- `ordinal`（保留历史行为）：p₀=σ(l₀)、p₁=σ(l₀+l₁)，P(neg)=1−p₀、P(neutral)=p₀(1−p₁)、P(pos)=p₀p₁。训练却把两者当作无条件累积概率，不能用其结果评价一致的序数方法。
+- `ordered`：q₀=σ(l₀)、q₁=σ(l₀−softplus(l₁))；P(neg)=1−q₀、P(neutral)=q₀−q₁、P(pos)=q₁。只用于三类，训练与推理采用同一累积解释；也不是标准 CORAL 复现。
 - `gate`：P(neutral)=1−σ(l₀)，P(neg)=σ(l₀)·softmax(l₁:)[neg]，P(pos)=σ(l₀)·softmax(l₁:)[pos]。
 
 ### 上下文范围 `--context-scope`（仅 pair 模式）

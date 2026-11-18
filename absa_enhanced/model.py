@@ -8,14 +8,17 @@ from torch.nn import functional as F
 from transformers import AutoConfig, AutoModel
 
 from . import heads
+from .labels import THREE_LABELS, sentiment_labels
 
 
 class JointABSA(nn.Module):
     model_kind = "joint"
 
     def __init__(self, encoder, local_radius=16, fusion=True, dropout=0.15, use_cls=True,
-                 sentiment_head="softmax"):
+                 sentiment_head="softmax", labels=THREE_LABELS):
         super().__init__()
+        self.labels = sentiment_labels(labels)
+        self.num_classes = len(self.labels)
         self.encoder = encoder
         self.local_radius = local_radius
         self.fusion = fusion
@@ -34,17 +37,17 @@ class JointABSA(nn.Module):
         features = hidden * (2 + int(use_cls))
         self.sentiment = nn.Sequential(nn.LayerNorm(features), nn.Dropout(dropout),
                                        nn.Linear(features, 256), nn.GELU(),
-                                       nn.Dropout(dropout), nn.Linear(256, heads.output_dim(sentiment_head)))
+                                       nn.Dropout(dropout), nn.Linear(256, heads.output_dim(sentiment_head, self.num_classes)))
 
     @classmethod
     def from_pretrained(cls, name, **kwargs):
         return cls(AutoModel.from_pretrained(name), **kwargs)
 
     def probabilities(self, logits):
-        return heads.probabilities(self.sentiment_head, logits, getattr(self, "neutral_offset", 1.0))
+        return heads.probabilities(self.sentiment_head, logits, getattr(self, "neutral_offset", 1.0), self.num_classes)
 
     def sentiment_loss(self, logits, labels, class_weights=None, smoothing=0.05):
-        return heads.loss(self.sentiment_head, logits, labels, class_weights, smoothing)
+        return heads.loss(self.sentiment_head, logits, labels, class_weights, smoothing, self.num_classes)
 
     def encode(self, inputs):
         hidden = self.encoder(**inputs, return_dict=True).last_hidden_state
@@ -52,7 +55,7 @@ class JointABSA(nn.Module):
 
     def classify(self, hidden, valid, spans):
         if not len(spans):
-            return hidden.new_empty((0, 3))
+            return hidden.new_empty((0, heads.output_dim(self.sentiment_head, self.num_classes)))
         batch, starts, ends = spans.unbind(-1)
         positions = torch.arange(hidden.shape[1], device=hidden.device).unsqueeze(0)
         target_mask = (positions >= starts[:, None]) & (positions < ends[:, None])
@@ -91,7 +94,7 @@ class JointABSA(nn.Module):
         settings = {**metadata, "model_kind": self.model_kind, "local_radius": self.local_radius, "fusion": self.fusion,
                     "dropout": self.dropout_rate, "use_cls": self.use_cls,
                     "sentiment_head": getattr(self, "sentiment_head", "softmax"),
-                    "labels": ["negative", "neutral", "positive"]}
+                    "labels": list(self.labels)}
         (directory / "settings.json").write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
 
     @classmethod
@@ -100,17 +103,23 @@ class JointABSA(nn.Module):
         from transformers import AutoTokenizer
         directory = Path(directory)
         settings = json.loads((directory / "settings.json").read_text(encoding="utf-8"))
-        encoder = AutoModel.from_config(AutoConfig.from_pretrained(directory / "encoder_config"))
         sentiment_head = settings.get("sentiment_head", "softmax")
+        labels = sentiment_labels(settings.get("labels", THREE_LABELS))
+        expected = heads.output_dim(sentiment_head, len(labels))
+        state = torch.load(directory / "model.pt", map_location="cpu", weights_only=True)
+        weight = state.get("sentiment.5.weight")
+        if weight is not None and weight.shape[0] != expected:
+            raise ValueError(f"Checkpoint labels/output layer mismatch: {list(labels)} require "
+                             f"{expected} outputs, checkpoint has {weight.shape[0]}")
+        encoder = AutoModel.from_config(AutoConfig.from_pretrained(directory / "encoder_config"))
         if settings.get("model_kind", "joint") == "pair":
             from .pair import PairABSA
             model = PairABSA(encoder, dropout=settings["dropout"], use_cls=settings.get("use_cls", True),
-                             sentiment_head=sentiment_head)
+                             sentiment_head=sentiment_head, labels=labels)
         else:
             model = cls(encoder, local_radius=settings["local_radius"], fusion=settings["fusion"],
                         dropout=settings["dropout"], use_cls=settings.get("use_cls", True),
-                        sentiment_head=sentiment_head)
-        state = torch.load(directory / "model.pt", map_location="cpu", weights_only=True)
+                        sentiment_head=sentiment_head, labels=labels)
         model.load_state_dict(state, strict=True)
         tokenizer = AutoTokenizer.from_pretrained(directory / "tokenizer", use_fast=True)
         return model, tokenizer, settings

@@ -30,7 +30,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import tune_neutral_offset as tno  # noqa: E402
 
-LABELS = tno.LABELS
 
 
 def stratified_subsample(rows: list[dict], size: int, rng: random.Random) -> list[dict]:
@@ -65,8 +64,11 @@ def main() -> int:
         directory = Path(run)
         validation = tno.read_rows(directory / tno.VALIDATION)
         test = tno.read_rows(directory / tno.TEST)
+        labels = tno.labels_for_rows(validation)
+        if tno.labels_for_rows(test) != labels:
+            raise ValueError("Validation and test prediction label axes differ")
         base_metrics = tno.metrics(test, 1.0)
-        entry = {"validation_aspects": len(validation),
+        entry = {"labels": list(labels), "validation_aspects": len(validation),
                  "validation_neutral": sum(row["label"] == "neutral" for row in validation),
                  "test_aspects": len(test),
                  "test_at_k1": {name: base_metrics[name] for name in ("accuracy", "macro_f1")},

@@ -1,0 +1,55 @@
+{
+  "dataset": "SemEval-2014 Restaurant",
+  "task": "explicit_aspect_term_sentiment",
+  "labels": [
+    "negative",
+    "neutral",
+    "positive",
+    "conflict"
+  ],
+  "policy": "Preserve all original polarities; separate from Restaurant3",
+  "splits": {
+    "train": {
+      "statistics": {
+        "sentences": 3041,
+        "aspect_terms": 3693,
+        "aspect_categories": 3713,
+        "label_counts": {
+          "negative": 805,
+          "positive": 2164,
+          "neutral": 633,
+          "conflict": 91
+        }
+      },
+      "conversion_audit": {
+        "retained_conflict_aspectCategory": 195,
+        "retained_conflict_aspectTerm": 91
+      },
+      "source_sha256": "223601da1bded6caa4ef9cf91a7007578141ca6d8ed50d5a5c217565f89d2fc5",
+      "sha256": "c6e7111f782ad3438ca93bc7805ac98b146383c4addbdc5a41c924513437b746",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2014Task4/resolve/3fd43769112ef6517c263e303fbb7dc3002c35df/SemEval%2714-ABSA-TrainData_v2%20%26%20AnnotationGuidelines/Restaurants_Train_v2.xml",
+      "source_revision": "3fd43769112ef6517c263e303fbb7dc3002c35df"
+    },
+    "test": {
+      "statistics": {
+        "sentences": 800,
+        "aspect_terms": 1134,
+        "aspect_categories": 1025,
+        "label_counts": {
+          "positive": 728,
+          "conflict": 14,
+          "neutral": 196,
+          "negative": 196
+        }
+      },
+      "conversion_audit": {
+        "retained_conflict_aspectTerm": 14,
+        "retained_conflict_aspectCategory": 52
+      },
+      "source_sha256": "f21509cfa37e16534cd5b2da043be487355b64ef48fe8d6aaacaeca6b49cc0fb",
+      "sha256": "8c9bf726fa713621425b259b8c7ba37ab5aa47e3ad3f3b20aed3d4dc1cd4c7f4",
+      "source_url": "https://huggingface.co/datasets/alexcadillon/SemEval2014Task4/resolve/3fd43769112ef6517c263e303fbb7dc3002c35df/ABSA_Gold_TestData/Restaurants_Test_Gold.xml",
+      "source_revision": "3fd43769112ef6517c263e303fbb7dc3002c35df"
+    }
+  }
+}

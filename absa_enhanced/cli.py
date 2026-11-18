@@ -13,11 +13,13 @@ from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, get_linear_schedule_with_warmup
 from tqdm.auto import tqdm
 
-from .data import Aspect, Collator, Document, SENTIMENTS, WindowDataset, prepare_splits, read_documents
+from .data import Aspect, Collator, Document, WindowDataset, prepare_splits, read_documents
 from .evaluation import autocast_context, evaluate, move_batch, save_results
 from .model import JointABSA, joint_loss
 from .pair import PairABSA, PairDataset
 from .selection import checkpoint_directory, selection_key
+from .labels import sentiment_labels
+from .heads import HEADS, output_dim
 
 
 def write_json(path, value):
@@ -54,13 +56,15 @@ def dataset_paths(args):
         directory = root / "MAMS/data/MAMS-ATSA/raw"
         paths = (directory / "train.xml", directory / "val.xml", directory / "test.xml")
     else:
-        directory = root / {"restaurant": "Restaurant3", "restaurant2015": "Restaurant2015",
+        directory = root / {"restaurant": "Restaurant4" if getattr(args, "labels", "three") == "four" else "Restaurant3", "restaurant2015": "Restaurant2015",
                             "restaurant2016": "Restaurant2016"}[args.dataset]
         paths = (directory / "train.xml", None, directory / "test.xml")
     return args.train or paths[0], args.validation or paths[1], args.test or paths[2]
 
 
 def validate_training_args(args):
+    labels = sentiment_labels(getattr(args, "labels", "three"))
+    output_dim(args.sentiment_head, len(labels))
     if min(args.epochs, args.batch_size, args.grad_accum, args.patience) < 1:
         raise ValueError("epochs, batch-size, grad-accum and patience must be positive")
     if args.learning_rate <= 0 or args.head_learning_rate <= 0:
@@ -79,6 +83,7 @@ def validate_training_args(args):
 
 def train(args):
     validate_training_args(args)
+    label_order = sentiment_labels(args.labels)
     output = Path(args.output)
     if output.exists() and any(output.iterdir()):
         raise ValueError(f"Output directory is not empty: {output}; choose a new directory")
@@ -91,15 +96,15 @@ def train(args):
     train_path, validation_path, test_path = dataset_paths(args)
     split_seed = args.seed if args.split_seed is None else args.split_seed
     train_docs, val_docs, test_docs, audit = prepare_splits(train_path, validation_path, test_path,
-                                                        args.validation_fraction, split_seed)
+                                                        args.validation_fraction, split_seed, labels=label_order)
     tokenizer = AutoTokenizer.from_pretrained(args.encoder, use_fast=True)
     tokenizer.padding_side = "right"
     if args.mode == "pair":
         def build(documents):
-            return PairDataset(documents, tokenizer, args.max_length, args.stride, scope=args.context_scope)
+            return PairDataset(documents, tokenizer, args.max_length, args.stride, scope=args.context_scope, labels=label_order)
     else:
         def build(documents):
-            return WindowDataset(documents, tokenizer, args.max_length, args.stride)
+            return WindowDataset(documents, tokenizer, args.max_length, args.stride, labels=label_order)
     train_data = build(train_docs)
     val_data = build(val_docs)
     # Validate every test annotation before spending time training. No scores are used.
@@ -107,12 +112,12 @@ def train(args):
     if args.mode == "pair":
         model = PairABSA.from_pretrained(args.encoder, dropout=args.dropout,
                                          use_cls=not args.no_cls_feature,
-                                         sentiment_head=args.sentiment_head)
+                                         sentiment_head=args.sentiment_head, labels=label_order)
     else:
         model = JointABSA.from_pretrained(args.encoder, local_radius=args.local_radius,
                                          fusion=not args.no_fusion, dropout=args.dropout,
                                          use_cls=not args.no_cls_feature,
-                                         sentiment_head=args.sentiment_head)
+                                         sentiment_head=args.sentiment_head, labels=label_order)
     extraction_weight = 0.0 if args.mode == "pair" else args.extraction_weight
     if args.max_length > getattr(model.encoder.config, "max_position_embeddings", args.max_length):
         raise ValueError("max-length exceeds this encoder's supported position range")
@@ -122,7 +127,7 @@ def train(args):
     counts = audit["training_sentiment_counts"]
     class_weights = None
     if args.class_weighting == "sqrt":
-        class_weights = torch.tensor([1 / math.sqrt(counts[label]) for label in SENTIMENTS], device=device)
+        class_weights = torch.tensor([1 / math.sqrt(counts[label]) for label in label_order], device=device)
         class_weights = class_weights / class_weights.mean()
     groups = {}
     for name, parameter in model.named_parameters():
@@ -145,7 +150,7 @@ def train(args):
     output.mkdir(parents=True, exist_ok=True)
     metadata = {"max_length": args.max_length, "stride": args.stride, "encoder": args.encoder,
                 "context_scope": args.context_scope}
-    config = {**vars(args), "resolved_precision": precision, "resolved_device": str(device),
+    config = {**vars(args), "label_order": list(label_order), "resolved_precision": precision, "resolved_device": str(device),
               "resolved_split_seed": split_seed, "effective_extraction_weight": extraction_weight,
               "train_path": str(train_path), "validation_path": str(validation_path), "test_path": str(test_path),
               "audit": audit, "train_sentences": len(train_docs), "validation_sentences": len(val_docs),
@@ -274,7 +279,7 @@ def predict_or_evaluate(args):
             raise ValueError("extractor-checkpoint must be a trained joint model, not a pair classifier")
         extractor.to(device)
         source_data = WindowDataset([Document("user", args.text, ())], extraction_tokenizer,
-                                    extraction_settings["max_length"], extraction_settings["stride"])
+                                    extraction_settings["max_length"], extraction_settings["stride"], labels=extractor.labels)
         _, _, extracted_rows = evaluate(extractor, extraction_tokenizer, source_data, device,
                                         args.batch_size, precision, compute_metrics=False)
         extracted_aspects = tuple(Aspect(p["start"], p["end"], "neutral") for p in extracted_rows[0]["predictions"])
@@ -310,9 +315,9 @@ def predict_or_evaluate(args):
             raise ValueError("--aspect-start requires --aspect")
         documents = [Document("user", args.text, aspects)]
     if model.model_kind == "pair":
-        data = PairDataset(documents, tokenizer, max_length, stride, scope=settings.get("context_scope", "sentence"))
+        data = PairDataset(documents, tokenizer, max_length, stride, scope=settings.get("context_scope", "sentence"), labels=model.labels)
     else:
-        data = WindowDataset(documents, tokenizer, max_length, stride)
+        data = WindowDataset(documents, tokenizer, max_length, stride, labels=model.labels)
     metrics, gold_rows, sentence_rows = evaluate(model, tokenizer, data, device, args.batch_size,
                                                 precision, compute_metrics=args.command == "evaluate")
     if args.command == "evaluate":
@@ -344,6 +349,8 @@ def main():
     tr.add_argument("--encoder", default="microsoft/deberta-v3-base")
     tr.add_argument("--mode", choices=["joint", "pair"], default="joint",
                     help="joint: extraction + sentiment; pair: aspect-conditioned sentiment only")
+    tr.add_argument("--labels", choices=["three", "four"], default="three",
+                    help="Default three labels; four retains conflict and requires the softmax head")
     tr.add_argument("--epochs", type=int, default=6)
     tr.add_argument("--grad-accum", type=int, default=4)
     tr.add_argument("--learning-rate", type=float, default=1e-5)
@@ -357,8 +364,8 @@ def main():
     tr.add_argument("--class-weighting", choices=["sqrt", "none"], default="sqrt")
     tr.add_argument("--smoothing", type=float, default=0.05)
     tr.add_argument("--dropout", type=float, default=0.15)
-    tr.add_argument("--sentiment-head", choices=["softmax", "ordinal", "gate"], default="softmax",
-                    help="softmax: categorical baseline; ordinal: negative<neutral<positive; "
+    tr.add_argument("--sentiment-head", choices=HEADS, default="softmax",
+                    help="softmax supports three/four labels; ordinal is legacy; ordered is cumulative; "
                          "gate: opinion-presence then polarity (neutral = no opinion)")
     tr.add_argument("--context-scope", choices=["sentence", "clause"], default="sentence",
                     help="pair mode only: sentence keeps the whole context, clause restricts it to the "

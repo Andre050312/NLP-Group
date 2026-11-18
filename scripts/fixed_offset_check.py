@@ -22,7 +22,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import tune_neutral_offset as tno  # noqa: E402
 
-LABELS = tno.LABELS
 
 
 def deltas(rows: list[dict], grid: list[float]) -> dict[str, dict[float, float]]:
@@ -47,12 +46,19 @@ def main() -> int:
 
     grid = [float(value) for value in args.grid.split(",") if value.strip()]
     report: dict[str, object] = {"grid": grid}
+    label_axis = None
 
     if args.runs:
         per_run = {}
         for run in args.runs:
             directory = Path(run)
-            per_run[directory.name] = deltas(tno.read_rows(directory / tno.TEST), grid)
+            rows = tno.read_rows(directory / tno.TEST)
+            current = tno.labels_for_rows(rows)
+            if label_axis is not None and current != label_axis:
+                raise ValueError("Cannot aggregate three-class and four-class runs together")
+            label_axis = current
+            report["labels"] = list(label_axis)
+            per_run[directory.name] = deltas(rows, grid)
         summary = {}
         print(f"\n=== fixed offset on {len(per_run)} single-split runs (test) ===")
         print("  k      macro delta (mean +/- sd, positive)   neutral F1 delta (mean +/- sd, positive)")
@@ -83,6 +89,10 @@ def main() -> int:
                 pooled.extend(tno.read_rows(run / tno.TEST))
         if not pooled:
             raise SystemExit(f"No held-out predictions under {args.cv_dir}")
+        current = tno.labels_for_rows(pooled)
+        if label_axis is not None and current != label_axis:
+            raise ValueError("Single-split and CV prediction label axes differ")
+        report["labels"] = list(current)
         result = deltas(pooled, grid)
         print(f"\n=== fixed offset on pooled OOF from {args.cv_dir.name} "
               f"({len(pooled)} aspects) ===")

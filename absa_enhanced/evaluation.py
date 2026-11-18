@@ -9,6 +9,14 @@ from torch.utils.data import DataLoader
 
 from bert_baseline.data import classification_metrics
 from .data import Collator, SENTIMENTS, trim_span
+from .labels import sentiment_labels
+
+
+def evaluation_labels(model, dataset):
+    labels = sentiment_labels(getattr(model, "labels", SENTIMENTS))
+    if tuple(getattr(dataset, "labels", labels)) != labels:
+        raise ValueError("Model and dataset sentiment labels do not match")
+    return labels
 
 
 def autocast_context(device, precision):
@@ -49,6 +57,7 @@ def move_batch(batch, device):
 
 
 def evaluate(model, tokenizer, dataset, device, batch_size=2, precision="no", compute_metrics=True):
+    labels = evaluation_labels(model, dataset)
     if getattr(model, "model_kind", "joint") == "pair":
         return evaluate_pairs(model, tokenizer, dataset, device, batch_size, precision, compute_metrics)
     model.eval()
@@ -85,7 +94,7 @@ def evaluate(model, tokenizer, dataset, device, batch_size=2, precision="no", co
                 predicted_scores[key].append(probabilities)
 
     def average(values):
-        return [sum(row[i] for row in values) / len(values) for i in range(3)]
+        return [sum(row[i] for row in values) / len(values) for i in range(len(labels))]
 
     predicted = {key: average(values) for key, values in predicted_scores.items()}
     gold_rows, sentence_rows, gold_labels, gold_predictions = [], [], [], []
@@ -94,34 +103,34 @@ def evaluate(model, tokenizer, dataset, device, batch_size=2, precision="no", co
         for aspect in document.aspects:
             key = (doc_index, aspect.start, aspect.end)
             extraction_gold.add(key)
-            if aspect.label == "conflict":
+            if aspect.label not in labels:
                 conflict_keys.add(key)
                 continue
             probabilities = average(gold_scores[key])
-            label = max(range(3), key=probabilities.__getitem__)
-            gold_labels.append(SENTIMENTS.index(aspect.label))
+            label = max(range(len(labels)), key=probabilities.__getitem__)
+            gold_labels.append(labels.index(aspect.label))
             gold_predictions.append(label)
             pair_gold.add((*key, aspect.label))
             gold_rows.append({"sentence_id": document.uid, "text": document.text,
                               "aspect": document.text[aspect.start:aspect.end], "start": aspect.start,
-                              "end": aspect.end, "label": aspect.label, "prediction": SENTIMENTS[label],
-                              "probabilities": dict(zip(SENTIMENTS, probabilities))})
+                              "end": aspect.end, "label": aspect.label, "prediction": labels[label],
+                              "label_order": list(labels), "probabilities": dict(zip(labels, probabilities))})
         predictions = []
         for (index, start, end), probabilities in sorted(predicted.items()):
             if index == doc_index:
-                label = max(range(3), key=probabilities.__getitem__)
+                label = max(range(len(labels)), key=probabilities.__getitem__)
                 predictions.append({"aspect": document.text[start:end], "start": start, "end": end,
-                                    "sentiment": SENTIMENTS[label], "confidence": probabilities[label]})
+                                    "sentiment": labels[label], "confidence": probabilities[label]})
         sentence_rows.append({"sentence_id": document.uid, "text": document.text,
                               "gold": [a.__dict__ for a in document.aspects], "predictions": predictions})
     metrics = {}
     if compute_metrics:
         if not gold_labels:
-            raise ValueError("No three-class sentiment targets to evaluate")
+            raise ValueError(f"No sentiment targets in configured labels {labels} to evaluate")
         extraction_predicted = set(predicted)
-        pairs = {(*key, SENTIMENTS[max(range(3), key=probabilities.__getitem__)])
+        pairs = {(*key, labels[max(range(len(labels)), key=probabilities.__getitem__)])
                  for key, probabilities in predicted.items() if key not in conflict_keys}
-        metrics = {"gold_aspect_sentiment": classification_metrics(gold_labels, gold_predictions, SENTIMENTS),
+        metrics = {"gold_aspect_sentiment": classification_metrics(gold_labels, gold_predictions, labels),
                    "aspect_extraction": set_metrics(extraction_gold, extraction_predicted),
                    "end_to_end": set_metrics(pair_gold, pairs), "sentences": len(dataset.documents),
                    "windows": len(dataset), "excluded_conflict_targets": len(conflict_keys)}
@@ -130,6 +139,7 @@ def evaluate(model, tokenizer, dataset, device, batch_size=2, precision="no", co
 
 def evaluate_pairs(model, tokenizer, dataset, device, batch_size=2, precision="no", compute_metrics=True):
     """Only gold-aspect classification is measurable without an extraction model."""
+    label_order = evaluation_labels(model, dataset)
     model.eval()
     loader = DataLoader(dataset, batch_size=batch_size, collate_fn=Collator(tokenizer), num_workers=0)
     gold_rows, gold, predicted = [], [], []
@@ -143,23 +153,24 @@ def evaluate_pairs(model, tokenizer, dataset, device, batch_size=2, precision="n
             for row, values, label in zip(batch["rows"], probabilities, labels.cpu().tolist()):
                 document = dataset.documents[row["doc_index"]]
                 _, _, _, start, end = row["targets"][0]
-                prediction = max(range(3), key=values.__getitem__)
+                prediction = max(range(len(label_order)), key=values.__getitem__)
                 gold.append(label)
                 predicted.append(prediction)
                 result = {"sentence_id": document.uid, "text": document.text,
                           "aspect": document.text[start:end], "start": start, "end": end,
-                          "label": SENTIMENTS[label], "prediction": SENTIMENTS[prediction],
-                          "probabilities": dict(zip(SENTIMENTS, values))}
+                          "label": label_order[label], "prediction": label_order[prediction],
+                          "label_order": list(label_order), "probabilities": dict(zip(label_order, values))}
                 gold_rows.append(result)
                 by_document[row["doc_index"]].append({"aspect": result["aspect"], "start": start, "end": end,
                                                       "sentiment": result["prediction"], "confidence": values[prediction],
                                                       "aspect_source": "provided"})
     metrics = {}
     if compute_metrics:
-        metrics = {"mode": "pair", "gold_aspect_sentiment": classification_metrics(gold, predicted, SENTIMENTS),
+        metrics = {"mode": "pair", "gold_aspect_sentiment": classification_metrics(gold, predicted, label_order),
                    "aspect_extraction": None, "end_to_end": None,
                    "sentences": len(dataset.documents), "encoded_pairs": len(dataset),
-                   "excluded_conflict_targets": sum(a.label == "conflict" for d in dataset.documents for a in d.aspects)}
+                   "excluded_conflict_targets": sum(a.label == "conflict" for d in dataset.documents for a in d.aspects)
+                   if "conflict" not in label_order else 0}
     sentence_rows = [{"sentence_id": d.uid, "text": d.text, "mode": "pair_given_aspects",
                       "gold": [a.__dict__ for a in d.aspects], "predictions": by_document[i]}
                      for i, d in enumerate(dataset.documents)]

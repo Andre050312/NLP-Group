@@ -5,7 +5,10 @@ import xml.etree.ElementTree as ET
 LABELS = {"negative", "neutral", "positive"}
 
 
-def convert_source(content, source_format):
+def convert_source(content, source_format, include_conflict=False):
+    if include_conflict and source_format != "semeval2014":
+        raise ValueError("Four-class export is supported only for SemEval-2014 sources")
+    allowed = LABELS | {"conflict"} if include_conflict else LABELS
     root = ET.fromstring(content)
     audit = Counter()
     if source_format in ("native", "semeval2014"):
@@ -18,11 +21,13 @@ def convert_source(content, source_format):
                     continue
                 for annotation in list(container):
                     label = annotation.attrib["polarity"]
-                    if label == "conflict" and source_format == "semeval2014":
+                    if label == "conflict" and source_format == "semeval2014" and not include_conflict:
                         container.remove(annotation)
                         audit[f"excluded_conflict_{tag}"] += 1
-                    elif label not in LABELS:
+                    elif label not in allowed:
                         raise ValueError(f"Non-three-class label: {label}")
+                    elif label == "conflict":
+                        audit[f"retained_conflict_{tag}"] += 1
         # Native MAMS files are already three-class; preserve their exact bytes.
         return (content if source_format == "native" else ET.tostring(root, encoding="utf-8", xml_declaration=True)), dict(audit)
     if source_format != "opinions":
@@ -76,7 +81,8 @@ def convert_source(content, source_format):
     return ET.tostring(result, encoding="utf-8", xml_declaration=True), dict(audit)
 
 
-def xml_statistics(content):
+def xml_statistics(content, include_conflict=False):
+    allowed = LABELS | {"conflict"} if include_conflict else LABELS
     root = ET.fromstring(content)
     if root.tag != "sentences":
         raise ValueError("Expected sentences XML")
@@ -88,11 +94,11 @@ def xml_statistics(content):
         for aspect in sentence.findall("./aspectTerms/aspectTerm"):
             start, end = int(aspect.attrib["from"]), int(aspect.attrib["to"])
             label = aspect.attrib["polarity"]
-            if label not in LABELS or not 0 <= start < end <= len(text) or text[start:end] != aspect.attrib["term"]:
+            if label not in allowed or not 0 <= start < end <= len(text) or text[start:end] != aspect.attrib["term"]:
                 raise ValueError("Invalid three-class aspect annotation")
             counts[label] += 1
         for aspect in sentence.findall("./aspectCategories/aspectCategory"):
-            if aspect.attrib["polarity"] not in LABELS:
+            if aspect.attrib["polarity"] not in allowed:
                 raise ValueError("Invalid three-class category label")
             categories[aspect.attrib["polarity"]] += 1
     if not counts and not categories:

@@ -22,13 +22,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import tune_neutral_offset as tno  # noqa: E402
 
-LABELS = tno.LABELS
 SCALARS = ("accuracy", "macro_f1")
 
 
 def key_metrics(result: dict) -> dict:
     return {**{name: result[name] for name in SCALARS},
-            "neutral_f1": result["per_class"]["neutral"]["f1"]}
+            "neutral_f1": result["per_class"]["neutral"]["f1"],
+            "label_order": result["label_order"], "per_class": result["per_class"]}
 
 
 def choose(rows: list[dict], grid: list[float], metric: str) -> tuple[float, dict]:
@@ -59,10 +59,15 @@ def main() -> int:
             raise SystemExit(f"No fold_*/run directories under {cv}")
 
         per_fold, pooled_rows, pooled_base, pooled_nested = [], [], [], []
+        label_order = None
         for fold in folds:
             run = fold / "run"
             validation = tno.read_rows(run / tno.VALIDATION)
             held = tno.read_rows(run / tno.TEST)
+            current = tno.labels_for_rows(validation)
+            if tno.labels_for_rows(held) != current or (label_order is not None and label_order != current):
+                raise ValueError("CV folds must use the same validation/held-out label axes")
+            label_order = current
             k, validation_metrics = choose(validation, grid, args.metric)
             _, base = tno.predict(held, 1.0)
             _, tuned = tno.predict(held, k)
@@ -71,21 +76,22 @@ def main() -> int:
                 "chosen_offset": k,
                 "validation": key_metrics(validation_metrics),
                 "held_out_at_k1": key_metrics(tno.classification_metrics(
-                    [LABELS.index(r["label"]) for r in held], base, LABELS)),
+                    [label_order.index(r["label"]) for r in held], base, label_order)),
                 "held_out_at_k": key_metrics(tno.classification_metrics(
-                    [LABELS.index(r["label"]) for r in held], tuned, LABELS)),
+                    [label_order.index(r["label"]) for r in held], tuned, label_order)),
                 "held_out_rows": len(held),
             })
             pooled_rows.extend(held)
             pooled_base.extend(base)
             pooled_nested.extend(tuned)
 
-        gold = [LABELS.index(row["label"]) for row in pooled_rows]
-        argmax = tno.classification_metrics(gold, pooled_base, LABELS)
-        nested = tno.classification_metrics(gold, pooled_nested, LABELS)
+        gold = [label_order.index(row["label"]) for row in pooled_rows]
+        argmax = tno.classification_metrics(gold, pooled_base, label_order)
+        nested = tno.classification_metrics(gold, pooled_nested, label_order)
         oracle_k, oracle = choose(pooled_rows, grid, args.metric)
 
         summary = {
+            "labels": list(label_order),
             "cv_dir": str(cv),
             "folds": len(folds),
             "held_out_aspects": len(pooled_rows),
@@ -104,9 +110,9 @@ def main() -> int:
             for _ in range(args.bootstrap):
                 sample = [rng.choice(indices) for _ in indices]
                 a = tno.classification_metrics([gold[i] for i in sample],
-                                               [pooled_base[i] for i in sample], LABELS)
+                                               [pooled_base[i] for i in sample], label_order)
                 b = tno.classification_metrics([gold[i] for i in sample],
-                                               [pooled_nested[i] for i in sample], LABELS)
+                                               [pooled_nested[i] for i in sample], label_order)
                 for name in SCALARS:
                     deltas[name].append(b[name] - a[name])
                 deltas["neutral_f1"].append(b["per_class"]["neutral"]["f1"]

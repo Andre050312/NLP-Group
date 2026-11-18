@@ -1,9 +1,10 @@
-"""Tune a neutral logit offset on validation, then report the untouched test score.
+"""Tune a neutral decision offset on validation and evaluate saved predictions.
 
 Multiplying P(neutral) by k and renormalising is the same as adding log(k) to the neutral
-logit, so this calibrates the systematic under-prediction of neutral without changing the
-model. The offset is chosen on the internal validation split only; the official test set
-is scored once with that value. Use the printed value as `--neutral-offset` when scoring.
+logit. This adjusts an operating point, without demonstrating probability calibration.
+The offset is chosen on internal validation only; the printed held-out grid is for
+exploratory inspection and must not select k. Three/four labels are read from each
+prediction file's actual axis. Use the validation choice as `--neutral-offset`.
 
     python scripts/tune_neutral_offset.py --runs runs/a runs/b --metric macro_f1
 """
@@ -13,11 +14,8 @@ from pathlib import Path
 import random
 import sys
 
-if __package__:
-    from ..bert_baseline.data import classification_metrics
-else:  # `python scripts/tune_neutral_offset.py`
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from bert_baseline.data import classification_metrics
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from bert_baseline.data import classification_metrics, LABELS as ALL_LABELS
 
 LABELS = ("negative", "neutral", "positive")
 NEUTRAL = 1
@@ -35,21 +33,41 @@ def read_rows(path):
     return rows
 
 
-def predict(rows, offset):
+def labels_for_rows(rows):
+    """Read the actual probability axis; never discard a conflict column silently."""
+    if not rows:
+        raise ValueError("No prediction rows")
+    keys = set(rows[0]["probabilities"])
+    labels = ALL_LABELS if keys == set(ALL_LABELS) else LABELS
+    if keys != set(labels):
+        raise ValueError("Prediction probabilities require the canonical three/four label axis")
+    for row in rows:
+        if set(row["probabilities"]) != set(labels) or tuple(row.get("label_order", labels)) != labels:
+            raise ValueError("Inconsistent prediction label axes")
+        if row["label"] not in labels:
+            raise ValueError("Gold label is outside the prediction probability axis")
+    return labels
+
+
+def predict(rows, offset, labels=None):
+    actual = labels_for_rows(rows)
+    if labels is not None and tuple(labels) != actual:
+        raise ValueError("Prediction label axis does not match the requested labels")
+    labels = actual
     gold, predictions = [], []
     for row in rows:
-        values = [row["probabilities"][name] for name in LABELS]
+        values = [row["probabilities"][name] for name in labels]
         values[NEUTRAL] *= offset
         total = sum(values)
         values = [value / total for value in values]
-        gold.append(LABELS.index(row["label"]))
-        predictions.append(max(range(3), key=values.__getitem__))
+        gold.append(labels.index(row["label"]))
+        predictions.append(max(range(len(labels)), key=values.__getitem__))
     return gold, predictions
 
 
 def metrics(rows, offset):
     gold, predictions = predict(rows, offset)
-    return classification_metrics(gold, predictions, LABELS)
+    return classification_metrics(gold, predictions, labels_for_rows(rows))
 
 
 def score_key(result, metric):
@@ -72,13 +90,16 @@ def main():
     for directory in args.runs:
         validation = read_rows(Path(directory) / VALIDATION)
         test = read_rows(Path(directory) / TEST)
+        labels = labels_for_rows(validation)
+        if labels_for_rows(test) != labels:
+            raise ValueError("Validation and test prediction label axes differ")
         table = []
         for offset in grid:
             inside = metrics(validation, offset)
             table.append({"offset": offset, "validation": inside, "test": metrics(test, offset)})
         chosen = max(table, key=lambda entry: score_key(entry["validation"], args.metric))
         baseline = next(entry for entry in table if entry["offset"] == 1.0)
-        entry = {"metric": args.metric, "chosen_offset": chosen["offset"], "table": table,
+        entry = {"labels": list(labels), "metric": args.metric, "chosen_offset": chosen["offset"], "table": table,
                  "chosen": chosen, "baseline": baseline}
         if args.bootstrap:
             rng = random.Random(args.seed)
@@ -88,8 +109,8 @@ def main():
             deltas = {"accuracy": [], "macro_f1": [], "neutral_f1": []}
             for _ in range(args.bootstrap):
                 sample = [rng.choice(indices) for _ in indices]
-                a = classification_metrics([gold[i] for i in sample], [base_predictions[i] for i in sample], LABELS)
-                b = classification_metrics([gold[i] for i in sample], [tuned_predictions[i] for i in sample], LABELS)
+                a = classification_metrics([gold[i] for i in sample], [base_predictions[i] for i in sample], labels)
+                b = classification_metrics([gold[i] for i in sample], [tuned_predictions[i] for i in sample], labels)
                 deltas["accuracy"].append(b["accuracy"] - a["accuracy"])
                 deltas["macro_f1"].append(b["macro_f1"] - a["macro_f1"])
                 deltas["neutral_f1"].append(b["per_class"]["neutral"]["f1"] - a["per_class"]["neutral"]["f1"])

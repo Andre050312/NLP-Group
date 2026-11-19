@@ -1,52 +1,57 @@
-# 中性诊断：实测结果（Restaurant3，split-seed 42）
+# Recorded neutral-sentiment experiments
 
-本文只记录**已经跑出来**的数字，供 [实验指南](neutral_scope_study.md) 的结果表填写。所有配置使用同一套 1120 个 gold 方面（同一 `--split-seed 42`），差异只来自一个因素。
+These are the group's historical three-class Restaurant3 results, summarized in English.
+Numeric result tables retain their recorded values. Full independent reproduction requires
+the original per-run predictions and checkpoints. The report draft discusses evidence limitations.
 
-固定设置：`--mode pair --dataset restaurant --epochs 6 --batch-size 2 --grad-accum 4 --max-length 192 --split-seed 42 --class-weighting none --selection-metric gold_accuracy`。按验证 Accuracy 选模，测试集只评一次。GPU 为 RTX 5060 Laptop 8GB，BF16，单次训练约 18 分钟。
+The control and no-CLS models each use seeds 42–46 with split seed 42.
+Gate, legacy ordinal, clause cropping and joint observations have one seed.
+Pair settings were 6 epochs, batch size 2, accumulation 4, length 192,
+no class weighting and validation gold accuracy for checkpoint selection.
+The group reported an RTX 5060 Laptop GPU with 8 GB memory, BF16 and about 18 minutes per run.
 
-`control` 与 `--no-cls-feature` 各有 **seed 42 / 43 / 44 / 45 / 46 五次训练**，因此这两条线可以给出种子方差和配对比较；`gate` / `ordinal` / `clause` 只有 seed 42，**不能与前三者直接比较名次**（见第 3b 节）。
+Interpretation of the historical tables needs care. Two offset changes are ties, so
+nonnegative changes across all runs cannot support a sign test treating every run as a strict
+improvement. The configurations share seeds and test targets. Threshold maxima computed with
+test labels are retrospective diagnostics for those scores. A multiclass argmax has no fixed
+0.5 neutral threshold. Similar means do not establish equivalence. The legacy ordinal head has
+an objective–inference mismatch. Controlled pairs remain pending human review. Historical
+offset-script bootstrap intervals resample aspect rows, while the diagnostic analyzer supports
+sentence-text clusters.
 
-## 1. 主表（单种子，仅作参照）
+## 1 Single-seed reference results
 
-| 配置 | Acc | Macro-F1 | 中性 P | 中性 R | 中性 F1 | 中性 F1 95% CI（句级 bootstrap） | 中性 AP |
+All entries use seed 42. Neutral support is 196 and prevalence is 0.175. Single-seed differences do not establish a repeatable ranking.
+
+| Configuration | Acc | Macro-F1 | Neutral P | Neutral R | Neutral F1 | Neutral F1 95% CI (sentence bootstrap) | Neutral AP |
 |---|---|---|---|---|---|---|---|
-| control（含 CLS） | 0.8786 | 0.8076 | 0.782 | 0.531 | 0.632 | [0.552, 0.704] | 0.725 |
-| no CLS（`--no-cls-feature`） | 0.8786 | 0.8053 | 0.790 | 0.500 | 0.613 | [0.529, 0.685] | **0.745** |
-| gate 头 | 0.8723 | 0.8018 | 0.709 | 0.536 | 0.610 | [0.527, 0.683] | 0.712 |
-| ordinal 头 | 0.8688 | 0.7923 | 0.697 | 0.515 | 0.592 | [0.508, 0.663] | 0.687 |
-| clause 上下文 | 0.8429 | 0.7438 | 0.727 | 0.408 | 0.523 | [0.442, 0.599] | 0.648 |
+| control (with CLS) | 0.8786 | 0.8076 | 0.782 | 0.531 | 0.632 | [0.552, 0.704] | 0.725 |
+| no CLS (`--no-cls-feature`) | 0.8786 | 0.8053 | 0.790 | 0.500 | 0.613 | [0.529, 0.685] | **0.745** |
+| gate head | 0.8723 | 0.8018 | 0.709 | 0.536 | 0.610 | [0.527, 0.683] | 0.712 |
+| ordinal head | 0.8688 | 0.7923 | 0.697 | 0.515 | 0.592 | [0.508, 0.663] | 0.687 |
+| clause context | 0.8429 | 0.7438 | 0.727 | 0.408 | 0.523 | [0.442, 0.599] | 0.648 |
 
-**这一整张表都是 seed 42 单个种子**，不能当成配置之间的定论：control 与 no CLS 已有 5 个种子（第 3a、3b 节），`gate` / `ordinal` / `clause` 仍只有 1 个种子，**不能进配置对比表**。五个配置的中性 F1 置信区间全部互相重叠；种子方差（0.016–0.044，见 3b）大于其中四个配置之间的差异。本表只用于看量级和方向。
+## 1a BERT baseline on the same split
 
-中性 support 一律 196。中性 AP 的随机基线是中性的占比 0.175，所以 0.65–0.75 说明排序信号远强于随机，不是"没有信息"。
+BERT uses split seed 42 and the same 1682/295/800 sentence partition as pair models. It selects checkpoints by validation Macro-F1, while pair models use accuracy. BERT seed 42 replicated accuracy 0.8446, Macro-F1 0.7657 and neutral F1 0.5948. Its per-seed neutral F1 was 0.595 / 0.641 / 0.493 / 0.602 / 0.480. The second table records descriptive Welch t statistics.
 
-## 1a. BERT 基线（5 个种子，同一划分）
-
-`bert_baseline` 原先用 `--seed` 同时决定划分和初始化，因此换种子会同时换数据划分。本表给基线补上 `--split-seed`，固定成与 pair 实验完全相同的 1682/295/800 句，只改变训练种子（`scripts/replicate_bert_seeds.ps1`）。seed 42 重跑后与原目录逐项一致（Acc 0.8446、Macro-F1 0.7657、中性 F1 0.5948），说明划分确实被复现。
-
-| 模型 | n | Acc | Macro-F1 | 中性 P | 中性 R | 中性 F1 |
+| Model | n | Acc | Macro-F1 | Neutral P | Neutral R | Neutral F1 |
 |---|---|---|---|---|---|---|
-| BERT-base（句对） | 5 | 0.8398 ± 0.0099 | 0.7535 ± 0.0292 | 0.737 ± 0.081 | 0.469 ± 0.112 | 0.562 ± 0.072 |
+| BERT-base (pair) | 5 | 0.8398 ± 0.0099 | 0.7535 ± 0.0292 | 0.737 ± 0.081 | 0.469 ± 0.112 | 0.562 ± 0.072 |
 | DeBERTa joint | 1 | 0.8714 | 0.7915 | 0.793 | 0.469 | 0.590 |
 | DeBERTa pair `control` | 5 | 0.8727 ± 0.0076 | 0.7952 ± 0.0164 | 0.771 ± 0.028 | 0.486 ± 0.055 | 0.594 ± 0.044 |
 | DeBERTa pair `no CLS` | 5 | 0.8738 ± 0.0101 | 0.7982 ± 0.0194 | 0.746 ± 0.047 | 0.508 ± 0.047 | 0.603 ± 0.040 |
 
-BERT 逐种子中性 F1：0.595 / 0.641 / 0.493 / 0.602 / 0.480。**同一个基线在种子上能差 0.16**，比任何两个 DeBERTa 配置之间的差别都大。
-
-Welch t（不等方差，`scripts/compare_baselines.py`）：
-
-| 对比 | Acc | Macro-F1 | 中性 F1 |
+| Comparison | Acc | Macro-F1 | Neutral F1 |
 |---|---|---|---|
-| BERT − pair `control` | −0.0329（t=−5.90） | −0.0417（t=−2.79） | −0.0322（t=−0.86） |
-| BERT − pair `no CLS` | −0.0339（t=−5.38） | −0.0447（t=−2.85） | −0.0413（t=−1.12） |
+| BERT − pair `control` | −0.0329 (t=−5.90) | −0.0417 (t=−2.79) | −0.0322 (t=−0.86) |
+| BERT − pair `no CLS` | −0.0339 (t=−5.38) | −0.0447 (t=−2.85) | −0.0413 (t=−1.12) |
 
-只能这样写：DeBERTa pair 在 Accuracy 与 Macro-F1 上稳定优于 BERT 基线；**中性 F1 上不显著**，原因是基线的种子方差太大（±0.072），不是两者中性水平相同。同时要说明选模规则不同：基线按验证 Macro-F1 选轮，pair 按验证 Accuracy 选轮，这条差异对基线略有利。
+## 2 Threshold diagnostics for seed 42
 
-## 2. 阈值能买到多少（仅 seed 42）
+These maxima use test labels for retrospective analysis. They must not select a deployment threshold. Five-seed averages appear in Section 3c.
 
-对同一份打分扫全部阈值（诊断用，不在测试集上选阈值）：
-
-| 配置 | argmax 处中性 F1 | 任意阈值可达的最高中性 F1 |
+| Configuration | Neutral F1 at argmax | Maximum neutral F1 over thresholds |
 |---|---|---|
 | control | 0.632 | 0.658 |
 | no CLS | 0.613 | 0.689 |
@@ -54,15 +59,11 @@ Welch t（不等方差，`scripts/compare_baselines.py`）：
 | ordinal | 0.592 | 0.656 |
 | clause | 0.523 | 0.610 |
 
-单看 seed 42，会以为 no CLS 的 argmax 最低但上限最高 —— 第 3c 节用 5 个种子证明这是**抽到单个种子造成的**：两者的可达上限在 5 种子均值上是 0.6585 与 0.6665，几乎相同。
+## 3 Validation-selected neutral offset
 
-5 种子均值下仍然成立的一条：**argmax 中性 F1 只有 0.594 / 0.603，而可达上限约 0.66**，即默认 0.5 决策边界浪费了约 0.06 的中性 F1。这正是第 3 节中性偏移要修的东西。
+Each run chooses k on validation Macro-F1 and reports its test result. Mean ± SD uses sample standard deviation across five seeds. Shared seeds, shared test targets and ties prevent interpreting ten nonnegative changes as ten independent improvements.
 
-## 3. 中性偏移（验证集选 k，测试集只报一次）
-
-两条线各 5 个种子（42/43/44/45/46）的验证集选中值与测试集结果：
-
-| 配置 | seed | 选出的 k | Acc（k=1 → k） | Macro-F1 | 中性 F1 |
+| Configuration | seed | Selected k | Acc (k=1 → k) | Macro-F1 | Neutral F1 |
 |---|---|---|---|---|---|
 | control | 42 | 2.50 | 0.8786 → 0.8804 | 0.8076 → 0.8114 | 0.632 → 0.641 |
 | control | 43 | 1.50 | 0.8830 → 0.8821 | 0.8159 → 0.8166 | 0.640 → 0.645 |
@@ -75,265 +76,191 @@ Welch t（不等方差，`scripts/compare_baselines.py`）：
 | no CLS | 45 | 1.50 | 0.8714 → 0.8759 | 0.7815 → 0.7948 | 0.569 → 0.597 |
 | no CLS | 46 | 1.00 | 0.8625 → 0.8625 | 0.7810 → 0.7810 | 0.577 → 0.577 |
 
-按配置汇总（均值 ± 样本标准差，n = 5）：
-
-| 配置 | 指标 | 未加偏移 | 加上偏移 |
+| Configuration | Metric | Before offset | After offset |
 |---|---|---|---|
 | control | Macro-F1 | 0.7952 ± 0.0164 | 0.8048 ± 0.0100 |
 | control | Accuracy | 0.8727 ± 0.0076 | 0.8761 ± 0.0062 |
-| control | 中性 F1 | 0.5944 ± 0.0438 | 0.6206 ± 0.0264 |
+| control | Neutral F1 | 0.5944 ± 0.0438 | 0.6206 ± 0.0264 |
 | no CLS | Macro-F1 | 0.7982 ± 0.0194 | 0.8053 ± 0.0187 |
 | no CLS | Accuracy | 0.8738 ± 0.0101 | 0.8764 ± 0.0105 |
-| no CLS | 中性 F1 | 0.6034 ± 0.0401 | 0.6206 ± 0.0367 |
+| no CLS | Neutral F1 | 0.6034 ± 0.0401 | 0.6206 ± 0.0367 |
 
-偏移自身的效应（每个 run 与自己的 k=1 相比）：
-
-| 范围 | Macro-F1 增量 | 中性 F1 增量 | 不变差的 run 数 |
+| Scope | Macro-F1 change | Neutral F1 change | Runs with nonnegative change |
 |---|---|---|---|
-| control（n=5） | +0.0096 ± 0.0110 | +0.0263 ± 0.0284 | 5/5 |
-| no CLS（n=5） | +0.0071 ± 0.0068 | +0.0172 ± 0.0159 | 5/5 |
-| 合并（n=10） | **+0.0084 ± 0.0087** | **+0.0217 ± 0.0222** | **10/10** |
+| control (n=5) | +0.0096 ± 0.0110 | +0.0263 ± 0.0284 | 5/5 |
+| no CLS (n=5) | +0.0071 ± 0.0068 | +0.0172 ± 0.0159 | 5/5 |
+| Pooled (n=10) | **+0.0084 ± 0.0087** | **+0.0217 ± 0.0222** | **10/10** |
 
-这是本轮唯一稳健的改进，三个理由：
+## 3a Paired control and no-CLS comparison
 
-1. **10 个 run 全部非负**（最小 +0.0000）。符号检验 p = 2/2¹⁰ ≈ 0.002，且不依赖分布假设。
-2. 两个配置的收益量级相同（+0.0096 vs +0.0071），说明它**不是 no CLS 专属的**，而是通用的决策边界校准。
-3. 它压小了种子间方差：control Macro-F1 0.0164 → 0.0100、中性 0.0438 → 0.0264；no CLS 中性 0.0401 → 0.0367。
+Differences pair the same training seed on the same partition. Small differences and mixed signs limit evidence for a repeatable benefit.
 
-限制：k 在只有 113 个中性方面的验证集上从网格里选，选中值本身有随机性；seed 46 的 control 选到 k=5.0，说明网格边缘可能被撞到。合并 t 也不能当作 10 个独立样本（两个配置的种子不独立）。**结论只应写到"在 10 个 run 上方向一致、幅度约 +0.008 ~ +0.022"，不写"显著"以外的因果解释。**
-
-## 3a. control 与 no CLS 的配对比较（5 个种子）
-
-同一 split、同一批测试方面，按 seed 一一配对：
-
-| 比较 | 42 | 43 | 44 | 45 | 46 | 均值 ± SD | 配对 t | 符号检验 |
+| Comparison | 42 | 43 | 44 | 45 | 46 | Mean ± SD | Paired t | Sign test |
 |---|---|---|---|---|---|---|---|---|
-| Macro-F1，k=1 | −0.0023 | +0.0118 | +0.0046 | +0.0059 | −0.0049 | +0.0030 ± 0.0067 | +1.00 | 3/5，p=1.00 |
-| 中性 F1，k=1 | −0.0197 | +0.0284 | −0.0040 | +0.0336 | +0.0070 | +0.0091 ± 0.0222 | +0.91 | 3/5，p=1.00 |
-| Accuracy，k=1 | ±0.0000 | +0.0054 | +0.0009 | +0.0045 | −0.0054 | +0.0011 ± 0.0043 | +0.56 | 3/5，p=1.00 |
-| 中性 AP（排序） | +0.0199 | −0.0060 | +0.0026 | +0.0254 | +0.0014 | +0.0087 ± 0.0133 | +1.46 | 4/5，p=0.38 |
-| Macro-F1，各自加偏移后 | +0.0078 | +0.0112 | +0.0124 | −0.0037 | −0.0252 | **+0.0005 ± 0.0157** | **+0.07** | 3/5，p=1.00 |
-| Accuracy，各自加偏移后 | +0.0045 | +0.0062 | +0.0045 | ±0.0000 | −0.0134 | +0.0004 ± 0.0080 | +0.10 | 3/5，p=1.00 |
-| 中性 F1，各自加偏移后 | +0.0030 | +0.0238 | +0.0184 | +0.0102 | −0.0553 | +0.0000 ± 0.0319 | +0.00 | 3/5，p=1.00 |
+| Macro-F1, k=1 | −0.0023 | +0.0118 | +0.0046 | +0.0059 | −0.0049 | +0.0030 ± 0.0067 | +1.00 | 3/5, p=1.00 |
+| Neutral F1, k=1 | −0.0197 | +0.0284 | −0.0040 | +0.0336 | +0.0070 | +0.0091 ± 0.0222 | +0.91 | 3/5, p=1.00 |
+| Accuracy, k=1 | ±0.0000 | +0.0054 | +0.0009 | +0.0045 | −0.0054 | +0.0011 ± 0.0043 | +0.56 | 3/5, p=1.00 |
+| Neutral AP (ranking) | +0.0199 | −0.0060 | +0.0026 | +0.0254 | +0.0014 | +0.0087 ± 0.0133 | +1.46 | 4/5, p=0.38 |
+| Macro-F1, after each run uses its selected offset | +0.0078 | +0.0112 | +0.0124 | −0.0037 | −0.0252 | **+0.0005 ± 0.0157** | **+0.07** | 3/5, p=1.00 |
+| Accuracy, after each run uses its selected offset | +0.0045 | +0.0062 | +0.0045 | ±0.0000 | −0.0134 | +0.0004 ± 0.0080 | +0.10 | 3/5, p=1.00 |
+| Neutral F1, after each run uses its selected offset | +0.0030 | +0.0238 | +0.0184 | +0.0102 | −0.0553 | +0.0000 ± 0.0319 | +0.00 | 3/5, p=1.00 |
 
-**结论：在 5 个种子上，`--no-cls-feature` 与 control 在任何口径下都无法区分。**
+## 3a-prime Sensitivity to the number of seeds
 
-- 未校准时 Macro-F1 差 +0.0030（t=1.00）、中性 F1 差 +0.0091（t=0.91）。
-- 各自加偏移后 Macro-F1 差 +0.0005（t=0.07），中性 F1 差恰好 +0.0000。
-- 排序质量 AP 差 +0.0087（t=1.46），5 个种子里 4 个为正但两个接近 0，不构成证据。
+The first three seeds gave a stronger apparent improvement than the complete five-seed set. Report the complete seed set.
 
-### 3a′. 需要更正上一轮（n=3）的结论
-
-上一轮只有 seed 42/43/44 时，得到"各自加偏移后 no CLS 一致领先 +0.0105 ± 0.0024（t=7.65）"，并据此写过"三个种子上方向一致、幅度稳定"。**补上 seed 45/46 后该结论不成立**：
-
-| | n=3（seed 42/43/44） | n=5（全部） |
+| | n=3 (seed 42/43/44) | n=5 (all) |
 |---|---|---|
-| Macro-F1 差 | +0.0105 ± 0.0024 | +0.0005 ± 0.0157 |
-| 配对 t | +7.65 | +0.07 |
+| Macro-F1 difference | +0.0105 ± 0.0024 | +0.0005 ± 0.0157 |
+| Paired t | +7.65 | +0.07 |
 
-原因很直接：seed 45 的差是 −0.0037、seed 46 是 −0.0252，两个反例把均值和方差都拉平了。n=3 时 SD 只有 0.0024 是**抽样巧合**，不是"稳定"。这条要写进报告的局限说明：**任何基于 3 个种子的"一致领先"都可能是种子子集选择的结果，最小可报告样本是 5 个种子。**
+## 3b Training-seed variation
 
-顺带一个反向发现：offset 的收益也并非 no CLS 专属。seed 45/46 的 control 分别选了 k=1.5 / 5.0，测试 Macro-F1 因此 +0.0228 / +0.0203，比同期 no CLS 的 +0.0133 / +0.0000 更大。
+Training-seed variation provides context for single-seed head and context experiments. Repeated runs are needed to rank those alternatives.
 
-## 3b. 种子方差比所有配置差异都大
-
-| 配置（k=1，5 种子） | Macro-F1 逐个种子 | 均值 ± SD | 极差 |
+| Configuration (k=1, 5 seeds) | Macro-F1 by seed | Mean ± SD | Range |
 |---|---|---|---|
 | control | 0.8076 / 0.8159 / 0.7909 / 0.7757 / 0.7859 | 0.7952 ± 0.0164 | 0.0402 |
 | no CLS | 0.8053 / 0.8278 / 0.7955 / 0.7815 / 0.7810 | 0.7982 ± 0.0194 | 0.0468 |
 
-中性 F1 的种子间 SD 更高：control 0.0438、no CLS 0.0401，极差分别 0.1051 / 0.1000。
+## 3c Ranking quality
 
-对比第 1 节单种子的配置差异：`gate` −0.0058、`ordinal` −0.0153、`clause` −0.0638。
+Neutral AP exceeds prevalence. The AP difference was +0.0087 ± 0.0133, t=1.46. The threshold-maximum difference was +0.0081 ± 0.0289. These observations do not establish equivalence or a ceiling for the dataset or future models.
 
-结论：
-
-- **`gate` / `ordinal` 与 control 的差距（0.006–0.015）远小于种子 SD（0.016–0.019），不能声称它们更差。**
-- 只有 `clause` 的 −0.0638 明显超出种子噪声，是唯一可以下结论的结构性差异。
-- 第 1 节表格里凡是单种子的逐项比较，都需要先做多种子才能引用。
-- 顺带提醒：我先前用 seed 42 单点报出的 control 0.8076 属于偏乐观的一侧（5 种子均值 0.7952）。
-
-## 3c. 排序质量：两者等价
-
-| 配置（5 种子均值） | argmax 中性 F1 | 中性 AP | 任意阈值可达最高中性 F1 |
+| Configuration (5-seed mean) | Neutral F1 at argmax | Neutral AP | Maximum neutral F1 over thresholds |
 |---|---|---|---|
 | control | 0.5944 | 0.7112 | 0.6585 |
 | no CLS | 0.6034 | 0.7198 | 0.6665 |
 
-AP 差 +0.0087 ± 0.0133（t=1.46，4/5 为正但两个接近 0）；可达上限差 +0.0081 ± 0.0289（3/5 为正）。**两者排序能力等价**，第 2 节基于单种子的"no CLS 上限更高"是过拟合到 seed 42 的观察。
+## 3d Interpretation
 
-可达上限本身倒是稳定的：control 0.6585、no CLS 0.6665，都落在 0.66 附近。对照 argmax 中性 F1 只有 0.594 / 0.603，说明**中性 F1 的天花板约 0.66**（对这两个 6-epoch 配置而言），阈值最多补 +0.06 左右。
+The next table summarizes recorded comparisons. Inconclusive comparisons provide limited evidence for improvement.
 
-## 3d. 综合判断
-
-| 问题 | 答案 |
+| Question | Interpretation |
 |---|---|
-| 去掉 CLS 让中性 F1 变高了吗？ | 没有。5 种子下未校准 +0.0091（t=0.91），加偏移后 +0.0000（t=0.00）。3 折交叉验证上反而 3/3 折更差（Macro-F1 −0.0059，中性 F1 −0.0108，见第 9 节）。 |
-| 去掉 CLS 让中性排序变好吗？ | 没有。AP 差 +0.0087（t=1.46），不显著。 |
-| 那中性偏移有用吗？ | 只在特定评估下有用。官方测试划分上 10/10 run 非负、固定 k=2 时 9/10 上升；但嵌套 3 折 CV 上不成立（第 9 节）。这是操作点补偿，不是可迁移的校准改进。 |
-| 能写进报告的最强表述 | "在相同分组划分、相同模型选择规则、5 个训练种子上，移除分类头 CLS 特征与含 CLS 的对照在 Macro-F1、中性 F1 与中性排序质量上均无统计差异，3 折交叉验证也未显示收益；验证集选出的中性 logit 偏移在官方测试划分上 10 个 run 全部非负（固定 k=2 时 9/10 上升，平均 Macro-F1 +0.012），但该增益未在嵌套交叉验证中复现，因而不宜当作通用校准改进。" |
-| 不能写的表述 | "去掉 CLS 提升中性 F1"、"no CLS 排序更好或有更大可校准余量"、"中性 F1 0.66 是数据集上限"、"3 个种子一致领先"、"中性偏移稳健提升中性 F1"。 |
+| Does removing CLS improve neutral F1? | Limited evidence for benefit: +0.0091 (t=0.91) before offset, +0.0000 (t=0.00) after offset across 5 seeds. Across 3 folds, no CLS is lower in 3/3, with Macro-F1 −0.0059 and neutral F1 −0.0108 (Section 9). |
+| Does removing CLS improve ranking? | AP difference +0.0087 (t=1.46), with limited evidence for improvement. |
+| Does the neutral offset help? | Protocol-dependent. On the official split 10/10 changes are nonnegative and fixed k=2 improves 9/10. Gains do not consistently transfer to 3-fold CV (Section 9). |
+| Report interpretation | With 5 seeds, effects are small and inconsistent. All 10 fixed-split runs have nonnegative changes with selected offsets. At fixed k=2, 9/10 improve with mean Macro-F1 +0.012. The 3-fold evaluation limits claims of a general improvement. |
+| Unsupported generalizations | Reliable gains from removing CLS, equivalent rankings, a neutral F1 dataset ceiling of 0.66, universal conclusions from 3 seeds, or portable offset gains. |
 
-## 4. 同句邻近方面：相关与因果分开看
+## 4 Neighboring aspects and sentiment scope
 
-本节全部数字来自 **seed 42** 的 checkpoint（受控样例需要具体权重，跑 5 个种子代价过高）。因此它说明的是"这个模型有这个现象"，不是"这个现象在种子间稳定"。第 4.1 节的分组召回在 5 种子上未复核。
+These observations use seed 42. Their stability across training seeds has not been checked.
 
-### 4.1 观测（test，seed 42）
+## 4.1 Observed subgroups on test, seed 42
 
-| 中性分组 | support | control 召回 | no CLS 召回 |
+Neighbor agreement was 41/92 (0.446) for control and 44/98 (0.449) for no CLS. Among eligible mixed-sentence errors, agreement was 0.911 / 0.898. Agreement is association. Matching any neighbor is less informative if both positive and negative neighbors exist.
+
+| Neutral subgroup | support | control recall | no CLS recall |
 |---|---|---|---|
-| 全部 | 196 | 0.531 | 0.500 |
-| 同句存在极性方面 | 83 | 0.458 | 0.410 |
-| 同句标注全部为中性 | 113 | 0.584 | 0.566 |
+| All | 196 | 0.531 | 0.500 |
+| Sentence has a polar aspect | 83 | 0.458 | 0.410 |
+| All annotated aspects in sentence are neutral | 113 | 0.584 | 0.566 |
 
-中性错例与某个人工标注邻居极性相同：control 41/92（0.446），no CLS 44/98（0.449）。在"存在极性邻居"的中性错例中比例是 0.911 / 0.898。这只是关联；邻居同时含正负极性时"匹配任一邻居"没有区分力。
+## 4.2 Controlled edits on 40 pending pairs
 
-去掉 CLS 后这个比例几乎没变（0.446 → 0.449），所以**CLS 特征不是同句极性串扰的主要通道**。
+Edits swap a neighboring opinion while retaining target wording. All 40 pairs await two-person review. The neutral subset contains 30 pairs. Control and no CLS get both sentences correct for 6 and 13 pairs. Clause cropping removes the distractor and can produce identical inputs. Probability-change reduction from 0.354 to 0.257 is approximately 27%. These pilot results cannot establish an internal causal mechanism.
 
-### 4.2 受控干预（40 对合成样例，`--include-unreviewed`，40 行全部 pending）
-
-每对只把干扰方面的 `excellent`/`nice` 换成 `awful`/`terrible`，目标方面表述不动。
-
-| 模型 | 中性目标 不变率 | 中性目标 两句都对 | 跟随干扰极性 | 中性概率平均变化 |
+| Model | Neutral-target invariance | Neutral-target both correct | Follows distractor polarity | Mean neutral probability change |
 |---|---|---|---|---|
 | control | 0.200 | 0.200 | 0.367 | 0.354 |
 | no CLS | 0.433 | 0.433 | 0.333 | 0.257 |
 | clause | **1.000** | 0.867 | 0.000 | **0.000** |
-| 极性对照（control） | 1.000 | 1.000 | 0.000 | 0.002 |
+| Polar controls (control) | 1.000 | 1.000 | 0.000 | 0.002 |
 
-读法：
+## 5 Validation and test
 
-- control 上，只翻转**另一个方面**的一个词，目标方面的中性概率平均移动 0.354，80% 的对里预测翻转。极性对照完全不变（0.002），说明这不是模型对所有输入都敏感，而是专门对同句极性敏感。这是同句串扰的**受控输入证据**，比 4.1 的相关性更强。
-- no CLS 把这个敏感度降到 0.257，不变率 0.20 → 0.433。这个方向与"CLS 携带句级捷径"一致，但只减轻一半，且第 3a 节显示 5 个种子上测试集中性 F1 并没有因此变好 —— 所以**不能把 CLS 说成串扰的主因**。
-- clause 的不变率 1.000 是**构造出来的**，不是学出来的：分句裁剪把干扰方面整段从输入里删掉，目标分句两个条件下逐 token 相同，前向完全相同（概率变化恰好 0.000）。所以它不能用来证明模型内部作用域变好，只能说明"如果输入里没有干扰，它就不会被干扰"。而真测试集上 clause 反而最差（中性 F1 0.523，Macro-F1 0.7438，比 control 5 种子均值 0.7952 低 0.051，超出种子 SD 0.016），说明模型确实需要跨分句语境，问题出在**归属**而不是**读取**。
-- 中性目标上 `both_correct` 是 30 对里的 6 对 / 13 对，二项噪声很大，不要单独引用。
+These are descriptive gaps for seed 42. General claims about systematic validation bias require more splits.
 
-样例仍是 pending，未做双人独立复核，因此这部分只能作为开发期诊断，不能当作人工金标准结论。
-
-## 5. 验证集与测试集
-
-| 配置 | Macro-F1 验证−测试（seed 42） | 中性 F1 验证−测试（seed 42） | 验证中性 support | 测试中性 support |
+| Configuration | Macro-F1 validation minus test (seed 42) | Neutral F1 validation minus test (seed 42) | Validation neutral support | Test neutral support |
 |---|---|---|---|---|
 | control | −0.0121 | +0.0530 | 113 | 196 |
 | no CLS | −0.0154 | +0.0476 | 113 | 196 |
 
-中性在验证集上被高估约 5 个点，而整体 Macro-F1 反而在测试集上更高。这正是"用验证集调中性相关超参会带乐观偏差"的具体表现：**任何只在验证集上看到的 neutral 提升，都必须拿测试集复核。**
+## 6 Reproduction commands
 
-## 6. 复现命令
+Run from the repository root. Paths follow the group's original run names. Preserve the actual training partition and validation predictions.
 
 ```powershell
-$env:HF_HOME = "D:\NLP-cache\huggingface"   # 中文路径下 SentencePiece 需要 ASCII 缓存目录
+$env:HF_HOME = "D:\NLP-cache\huggingface"
 
-# 五条训练（--sentiment-head / --context-scope / --no-cls-feature 三选一或组合）
 python -m absa_enhanced train --mode pair --dataset restaurant --output runs/pair_heads_softmax_s42 `
   --epochs 6 --batch-size 2 --grad-accum 4 --max-length 192 --seed 42 --split-seed 42 `
   --class-weighting none --selection-metric gold_accuracy --device auto
-# 其余把 --output 换掉并加 --no-cls-feature / --sentiment-head gate / --sentiment-head ordinal / --context-scope clause
 
-# 多种子复现（split-seed 固定 42）；两条线各跑一遍
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/replicate_neutral_seeds.ps1 -Config control -Seeds 43,44,45,46
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/replicate_neutral_seeds.ps1 -Config nocls -Seeds 43,44,45,46
 
-# 只读已有产物的汇总（不需要 GPU）
-python scripts/compare_seed_spread.py     # 两配置逐种子 + 配对差 + 符号检验
-python scripts/ranking_quality.py         # 中性 AP 与可达阈值上限
-python scripts/aggregate_offset_seeds.py  # 各自加偏移后的配对比较
-python scripts/offset_effect.py           # 偏移自身在每个 run 上的增量
+python scripts/compare_seed_spread.py
+python scripts/ranking_quality.py
+python scripts/aggregate_offset_seeds.py
+python scripts/offset_effect.py
 
-# 统一报告（AP、置信度、校准、句级 bootstrap）
 python -m neutral_diagnostics analyze --predictions runs/pair_nocls_s42/test_gold_predictions.jsonl `
   --gold-xml Database/Restaurant3/test.xml --dataset restaurant3 --split test `
   --run-id pair_nocls_seed42 --model-label pair_no_cls --training-seed 42 --output runs/analysis_no_cls
 
-# 阈值上限：读 neutral_pr_probability.csv 逐点算 F1 取最大
-
-# 验证集选中性偏移 + 配对 bootstrap（--output 可分别保存两条线）
 python scripts/tune_neutral_offset.py --runs runs/pair_nocls_s42 runs/pair_nocls_s43 runs/pair_nocls_s44 runs/pair_nocls_s45 runs/pair_nocls_s46 `
   --metric macro_f1 --bootstrap 2000 --output runs/offset_nocls.json
 python scripts/tune_neutral_offset.py --runs runs/pair_heads_softmax_s42 runs/pair_ctrl_s43 runs/pair_ctrl_s44 runs/pair_ctrl_s45 runs/pair_ctrl_s46 `
   --metric macro_f1 --bootstrap 2000 --output runs/offset_control.json
 
-# 受控样例
 python -m neutral_diagnostics predict-pairs --checkpoint runs/pair_nocls_s42/best `
   --output runs/scope_pair_nocls --include-unreviewed --device auto
 ```
 
-## 7. 下一步
+## 7 Follow-up work
 
-1. ~~seed 43/44 复现~~ 已完成。
-2. ~~补 control 的 seed 43/44~~ 已完成。
-3. ~~补到 5 个种子~~ 已完成（seed 45/46），并**推翻了 n=3 的领先结论**：`--no-cls-feature` 与 control 在 5 个种子上无差异（第 3a、3a′ 节）。当时认为中性偏移是唯一稳健的改进，**第 9 节的嵌套交叉验证已否定这一说法**：偏移只在官方测试划分上为正。
-4. ~~给 BERT 基线补种子~~ 已完成（第 1a 节）。补种子反而说明基线中性 F1 的种子方差（±0.072）是三个配置里最大的，单种子比较会得出任意方向的结论。
-5. ~~用 `cross-validate --folds 3` 在同一分组划分上比 control / no CLS~~ 已完成（第 9 节）：no CLS 在 3/3 折更差，偏移的增益不成立。下一步可考虑 `--folds 5` 提高功效，但更该做的是换表征。
-6. 40 对样例需要两人独立复核后转 `approved`，现在的结论只是探索性。复核页面由 `scripts/build_pair_review_sheet.py` 生成，合并用 `scripts/apply_pair_review.py`。
-7. 若要把中性 F1 再往上推，需要改表征（例如按分句给注意力先验、或对每句其他方面做显式对比）。阈值路线已经走到头：可达上限约 0.66，偏移已兑现其中的大部分。
-8. 方法结论：**任何配置比较至少 5 个种子**。本次 n=3 曾给出 +0.0105 ± 0.0024（t=7.65）的"稳定领先"，补两个种子后变成 +0.0005 ± 0.0157（t=0.07）。小样本里极小的标准差是抽样巧合的典型信号。
+Five-seed replications and three-fold comparisons are recorded here. Follow-up work includes independent human review of the 40 pairs, complete run archiving and target-attribution evaluation on fresh held-out examples. No fixed seed count guarantees statistical power.
 
-## 8. 披露：测试集复用
+## 8 Repeated use of the official test
 
-这份文档里的测试成绩**不是一次性的留出评估**。为完成配置对比、多种子复现和阈值扫描，同一批 1120 个 gold 方面被评分了几十次：5 个配置的单种子表、10 个 run 的偏移前后、逐点 PR 扫描、以及两轮种子扩充。反复观察后再选择"写哪个配置、报哪个种子"本身就会带来选择偏差，哪怕每次评分都只用了验证集选出的超参。
+The same 1120 test targets were inspected repeatedly during head comparisons, seed expansion and retrospective PR analysis. These comparisons are exploratory. Outer-fold evaluation excludes official-test data, but the folds share training observations.
 
-因此：
+## 9 Grouped three-fold evaluation with inner validation
 
-- 正文的比较结论应附带种子方差与配对检验，不能只报最好的一次。
-- 唯一接近无偏的估计是第 9 节的分组 3 折交叉验证：官方测试集不参与，偏移在每折内层验证集上选。
-- 论文/报告里应明确写出"测试集在本项目中被反复使用，绝对分数偏乐观"，不要把它包装成一次性留出集。
+The pool has 3040 sentences and 3601 aspects after removing official-test text overlap. Exact-text groups stay within a fold. Each outer training partition has an inner validation holdout with about 361–366 aspects and 62 neutral targets. Settings match the pair experiments. This is outer CV with inner holdout selection.
 
-## 9. 分组 3 折交叉验证（嵌套评价）
+## 9.1 Control and no CLS
 
-官方测试集不参与。样本池是 Restaurant3 train 的 3040 句 / 3601 个方面，按完全相同的文本分组切成 3 折（`--group-by auto`，重复文本不跨组）。每折：用其余两折训练，再从训练部分分出内层验证集选轮次，最后在外层留出折上评分一次。每折内层验证集 361–366 个方面（约 62 个中性），模型每折从预训练权重重新初始化，配置与主实验一致（`--epochs 6 --class-weighting none --selection-metric gold_accuracy`）。
+Pooled OOF covers all 3601 aspects once. Control accuracy / Macro-F1 / neutral F1 is 0.8398 / 0.7652 / 0.5740. No CLS gives 0.8367 / 0.7596 / 0.5639. Training-pool sizes and evaluation composition differ from the official-test protocol.
 
-### 9.1 control 与 no CLS
-
-| 配置 | 折 1 Macro | 折 2 | 折 3 | 均值 ± SD | 折 1 中性 F1 | 折 2 | 折 3 | 均值 ± SD |
+| Configuration | Fold 1 Macro | Fold 2 | Fold 3 | Mean ± SD | Fold 1 Neutral F1 | Fold 2 | Fold 3 | Mean ± SD |
 |---|---|---|---|---|---|---|---|---|
 | control | 0.7603 | 0.7671 | 0.7675 | 0.7650 ± 0.0041 | 0.5481 | 0.5908 | 0.5808 | 0.5732 ± 0.0223 |
 | no CLS | 0.7453 | 0.7654 | 0.7664 | 0.7591 ± 0.0119 | 0.5251 | 0.5901 | 0.5722 | 0.5624 ± 0.0336 |
-| 配对差（no CLS − control） | −0.0150 | −0.0017 | −0.0010 | **−0.0059** | −0.0230 | −0.0007 | −0.0086 | **−0.0108** |
+| Paired difference (no CLS minus control) | −0.0150 | −0.0017 | −0.0010 | **−0.0059** | −0.0230 | −0.0007 | −0.0086 | **−0.0108** |
 
-合并 OOF（3601 个方面各被预测一次）：control Acc 0.8398 / Macro-F1 0.7652 / 中性 F1 0.5740；no CLS Acc 0.8367 / Macro-F1 0.7596 / 中性 F1 0.5639。
+## 9.2 Validation-selected offsets on outer held-out predictions
 
-三折上 no CLS 一致更低，量级仍小（Macro-F1 −0.006）。结合第 3a 节（单次划分 5 种子 +0.003，t=0.07），可以下的结论是：**没有证据支持去掉 CLS 有益，交叉验证方向甚至是轻微有害。** 这与"等价"不同，报告里应写清楚是哪一种。
+Each k comes from that fold's inner validation set. Historical offset intervals use an aspect-row bootstrap. Fitting k directly on all OOF gives retrospective optima: control k=5.0, Macro-F1 +0.0030 and neutral F1 +0.0244; no CLS k=2.5, +0.0074 and +0.0242. The second table records fixed multipliers.
 
-OOF 分数（0.765 / 0.574）低于官方测试（0.795 / 0.594），两个原因叠加：每折只用 2/3 数据训练；测试集本身更容易（Acc 0.873 vs 0.840）。因此**不要把 OOF 与测试分数直接比较谁高谁低**，它们估计的不是同一个量。
-
-### 9.2 中性偏移在嵌套评价下不成立
-
-每折用**该折自己的内层验证集**选 k，再作用到该折外层留出方面（`scripts/cv_offset.py`）：
-
-| 配置 | 折 1 选出的 k | 折 2 | 折 3 | pooled Macro-F1：argmax → 嵌套偏移 | pooled 中性 F1：argmax → 嵌套偏移 |
+| Configuration | Fold 1 selected k | Fold 2 | Fold 3 | pooled Macro-F1: argmax → inner-validation offset | pooled Neutral F1: argmax → inner-validation offset |
 |---|---|---|---|---|---|
-| control | 1.25 | 2.00 | 2.00 | 0.7652 → 0.7613（−0.0039，95% CI [−0.0102, +0.0023]） | 0.5740 → 0.5739（−0.0001，CI [−0.0120, +0.0119]） |
-| no CLS | 5.00 | 1.00 | 1.00 | 0.7596 → 0.7628（+0.0032，CI [−0.0041, +0.0107]） | 0.5639 → 0.5767（+0.0129，CI [−0.0025, +0.0297]） |
+| control | 1.25 | 2.00 | 2.00 | 0.7652 → 0.7613 (−0.0039, 95% CI [−0.0102, +0.0023]) | 0.5740 → 0.5739 (−0.0001, CI [−0.0120, +0.0119]) |
+| no CLS | 5.00 | 1.00 | 1.00 | 0.7596 → 0.7628 (+0.0032, CI [−0.0041, +0.0107]) | 0.5639 → 0.5767 (+0.0129, CI [−0.0025, +0.0297]) |
 
-作为上界参考，把 k 直接拟合在全部 OOF 上：control 需要 k=5.0 才能拿到 Macro-F1 +0.0030 / 中性 F1 +0.0244；no CLS 需要 k=2.5 拿到 +0.0074 / +0.0242。即**即使事后挑最优 k，Macro-F1 的空间也只有 0.003–0.007**。
-
-固定 k（先验指定、不在各 run 上选）时两种评估的差别更清楚：
-
-| k | 官方测试，10 个 run 的 Macro-F1 增量 | 官方测试中性 F1 增量 | CV control OOF Macro-F1 | CV no CLS OOF Macro-F1 |
+| k | Official-test Macro-F1 change across 10 runs | Official-test neutral F1 change | CV control OOF Macro-F1 | CV no CLS OOF Macro-F1 |
 |---|---|---|---|---|
-| 1.25 | +0.0051（7/10） | +0.0127 | −0.0004 | +0.0024 |
-| 1.5 | +0.0067（9/10） | +0.0181 | −0.0005 | +0.0043 |
-| 2.0 | +0.0121（9/10） | +0.0311 | −0.0047 | +0.0050 |
-| 3.0 | +0.0119（8/10） | +0.0351 | −0.0031 | +0.0054 |
-| 5.0 | +0.0121（8/10） | +0.0427 | +0.0030 | +0.0048 |
+| 1.25 | +0.0051 (7/10) | +0.0127 | −0.0004 | +0.0024 |
+| 1.5 | +0.0067 (9/10) | +0.0181 | −0.0005 | +0.0043 |
+| 2.0 | +0.0121 (9/10) | +0.0311 | −0.0047 | +0.0050 |
+| 3.0 | +0.0119 (8/10) | +0.0351 | −0.0031 | +0.0054 |
+| 5.0 | +0.0121 (8/10) | +0.0427 | +0.0030 | +0.0048 |
 
-### 9.3 为什么两者对不上：操作点不同
+## 9.3 Operating points across protocols
 
-不是验证集大小的问题。把主划分的验证集（555 个方面）分层抽样缩到 366 个（与 CV 折内层同量级），增益仍然存在：10 个 run 里 8 个的 Macro-F1 均值增量为正，例如 control seed 46 +0.0169、no CLS seed 45 +0.0209（`scripts/offset_validation_size.py`）。
+Reducing validation from 555 to 366 aspects retained a positive mean gain in 8 of 10 runs, including control seed 46 +0.0169 and no CLS seed 45 +0.0209. This does not isolate a single cause. Precision/recall trade-offs and training partitions both matter.
 
-真正的差别在模型本身的中性操作点：
-
-| 评估 | 中性 P | 中性 R | 中性 F1 |
+| Evaluation | Neutral P | Neutral R | Neutral F1 |
 |---|---|---|---|
-| 官方测试（control，5 种子均值） | 0.771 | 0.486 | 0.594 |
-| CV OOF（control） | 0.669 | 0.502 | 0.574 |
+| Official test (control, 5-seed mean) | 0.771 | 0.486 | 0.594 |
+| CV OOF (control) | 0.669 | 0.502 | 0.574 |
 
-在训练池的留出数据上，模型本来就更愿意判中性（precision 只有 0.67，说明报 neutral 时错得多）；再去乘 k 只会继续压低 precision，换不回足够的 recall，Macro-F1 因此不升反降。官方测试划分上模型偏保守（precision 0.77），加偏移才划算。
+## 9.4 Reproduction
 
-**所以"中性偏移提升中性 F1"依赖于该划分上模型的偏置方向，不是一个可以带走的改进。** 报告里应如实写成"在固定测试划分上稳定为正、但在嵌套留出上不复现，机制是操作点差异"，而不是"我们发现了一个有效的校准方法"。这个负面结果本身有价值：它说明单次划分上调出来的校准量，换个评估协议就会消失。
-
-### 9.4 复现
+Three folds limit precision and share training observations. Preserve the protocol and report fold and pooled metrics separately.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_cv_3fold.ps1 -Config both
@@ -341,7 +268,3 @@ python scripts/cv_offset.py --cv-dir runs/cv_control_3fold --cv-dir runs/cv_nocl
 python scripts/offset_validation_size.py --runs runs/pair_heads_softmax_s42 runs/pair_ctrl_s43 --sizes 366,555 --draws 200
 python scripts/fixed_offset_check.py --runs runs/pair_ctrl_s43 --cv-dir runs/cv_control_3fold
 ```
-
-限制：3 折每次只用 2/3 数据训练，折数少、折间 SD 只有 0.004–0.012，功效有限；`--folds 5` 会更稳但成本翻倍。折内层验证集约 62 个中性，选 k 的方差大，这是第 9.2 节 control 折 1 选中 k=1.25 的原因之一。
-
-
